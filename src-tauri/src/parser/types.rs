@@ -106,4 +106,11 @@ pub struct Replay {
     /// Raw header string after the magic + version block; useful for debugging
     /// and for the `S=` / `M=` decoding.
     pub raw_header: String,
+    /// Total simulation ticks in the body's command stream — the highest
+    /// `time_code` we observed. `None` if the metadata-only parse path
+    /// was used (header.rs doesn't walk the body). Convert to wall-clock
+    /// seconds via `frames / 30` (KW's logical tick rate at game-speed 100).
+    /// `Some(0)` means the body was truncated / unwalkable.
+    #[serde(default)]
+    pub duration_frames: Option<u32>,
 }

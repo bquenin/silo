@@ -75,15 +75,19 @@ impl Command {
 
 /// Walk the chunk stream. `for_each_cmd` is invoked for every decoded command
 /// of interest (we only emit cmd_ids the caller cares about — passing an empty
-/// filter emits everything).
+/// filter emits everything). Returns the highest non-sentinel `time_code` seen
+/// across the whole body, which equals the game's total simulation-tick count
+/// (the engine writes one chunk per sim tick; KW's logical tick rate is 30 Hz
+/// at game-speed 100, so wall-clock seconds = max_time_code / 30).
 pub fn walk_commands<T: Read, F>(
     r: &mut R<'_, T>,
     cmd_filter: &[u8],
     mut for_each_cmd: F,
-) -> Result<()>
+) -> Result<u32>
 where
     F: FnMut(Command),
 {
+    let mut max_tc: u32 = 0;
     loop {
         let time_code = match r.read_u32_le() {
             Ok(v) => v,
@@ -92,6 +96,9 @@ where
         };
         if time_code == END_MARKER {
             break;
+        }
+        if time_code > max_tc {
+            max_tc = time_code;
         }
 
         let ty = r.read_u8()?;
@@ -123,7 +130,7 @@ where
 
         split_commands(payload, ncmd, time_code, cmd_filter, &mut for_each_cmd);
     }
-    Ok(())
+    Ok(max_tc)
 }
 
 /// Walk the bytes between command boundaries.

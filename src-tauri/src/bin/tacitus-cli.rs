@@ -9,6 +9,7 @@
 //!   tacitus parse <FILE>            — parse one file, print metadata
 //!   tacitus parse --full <FILE>     — parse + resolve Random factions
 //!   tacitus stats                   — high-level corpus aggregates
+//!   tacitus backfill-duration       — re-parse rows missing duration_frames
 //!
 //! Search filters (combinable; all narrow the result set):
 //!   --player NAME       substring match on any player.name (case-insensitive)
@@ -18,6 +19,8 @@
 //!   --year YYYY         matches the replay's recorded timestamp
 //!   --since YYYY-MM-DD  timestamp >= date (UTC)
 //!   --until YYYY-MM-DD  timestamp <= date (UTC)
+//!   --min-minutes N     duration_frames / 30 >= N*60
+//!   --max-minutes N     duration_frames / 30 <= N*60
 //!   --limit N           default 50
 //!   --sort recorded|map|players|length  default recorded
 //!   --order asc|desc                    default desc
@@ -82,6 +85,7 @@ fn run(args: &[String]) -> Result<()> {
         "count" => cmd_count(&db_path, json),
         "parse" => cmd_parse(&rest, json),
         "stats" => cmd_stats(&db_path, json),
+        "backfill-duration" => cmd_backfill_duration(&db_path, json),
         other => Err(anyhow!("unknown subcommand: {}", other)),
     }
 }
@@ -170,6 +174,9 @@ fn cmd_ls(db_path: &PathBuf, rest: &[&str], json: bool) -> Result<()> {
 fn cmd_search(db_path: &PathBuf, rest: &[&str], json: bool) -> Result<()> {
     use rusqlite::{params_from_iter, Connection};
     use tacitus_lib::db::{PlayerSummary, ReplayRow};
+    // Ensure additive migrations run on legacy catalogues before we
+    // build queries that reference the new column.
+    drop(Db::open(db_path)?);
 
     // -- parse flags --
     let mut player: Option<String> = None;
@@ -179,6 +186,8 @@ fn cmd_search(db_path: &PathBuf, rest: &[&str], json: bool) -> Result<()> {
     let mut year: Option<i64> = None;
     let mut since: Option<i64> = None;
     let mut until: Option<i64> = None;
+    let mut min_minutes: Option<i64> = None;
+    let mut max_minutes: Option<i64> = None;
     let mut limit: i64 = 50;
     let mut sort_key = "recorded".to_string();
     let mut order = "desc".to_string();
@@ -222,6 +231,8 @@ fn cmd_search(db_path: &PathBuf, rest: &[&str], json: bool) -> Result<()> {
             "--year" => year = Some(next(&mut i, "--year")?.parse()?),
             "--since" => since = Some(parse_ymd(next(&mut i, "--since")?)?),
             "--until" => until = Some(parse_ymd(next(&mut i, "--until")?)?),
+            "--min-minutes" => min_minutes = Some(next(&mut i, "--min-minutes")?.parse()?),
+            "--max-minutes" => max_minutes = Some(next(&mut i, "--max-minutes")?.parse()?),
             "--limit" => limit = next(&mut i, "--limit")?.parse()?,
             "--sort" => sort_key = next(&mut i, "--sort")?.into(),
             "--order" => order = next(&mut i, "--order")?.to_ascii_lowercase(),
@@ -235,11 +246,7 @@ fn cmd_search(db_path: &PathBuf, rest: &[&str], json: bool) -> Result<()> {
         "recorded" => format!("r.timestamp {order_sql}"),
         "map" => format!("r.map_name {order_sql}"),
         "players" => format!("r.n_players {order_sql}, r.timestamp DESC"),
-        "length" => {
-            // No duration column; fall back to timestamp.
-            // (KW replays' duration lives only in raw_header today.)
-            format!("r.timestamp {order_sql}")
-        }
+        "length" => format!("r.duration_frames {order_sql}, r.timestamp DESC"),
         other => return Err(anyhow!("unknown --sort key {other:?}")),
     };
 
@@ -290,6 +297,15 @@ fn cmd_search(db_path: &PathBuf, rest: &[&str], json: bool) -> Result<()> {
         where_parts.push("r.timestamp <= ?".into());
         binds.push(Box::new(u + 86399));
     }
+    if let Some(m) = min_minutes {
+        // 30 ticks/sec at game-speed 100 → minutes * 60 * 30 frames.
+        where_parts.push("r.duration_frames >= ?".into());
+        binds.push(Box::new(m * 60 * 30));
+    }
+    if let Some(m) = max_minutes {
+        where_parts.push("r.duration_frames <= ?".into());
+        binds.push(Box::new(m * 60 * 30));
+    }
 
     let where_sql = if where_parts.is_empty() {
         String::new()
@@ -298,7 +314,7 @@ fn cmd_search(db_path: &PathBuf, rest: &[&str], json: bool) -> Result<()> {
     };
     let sql = format!(
         "SELECT r.id, r.file_hash, r.file_path, r.map_name, r.n_players, \
-                r.timestamp, r.imported_at \
+                r.timestamp, r.imported_at, r.duration_frames \
          FROM replays r{where_sql} ORDER BY {order_by} LIMIT ?"
     );
     binds.push(Box::new(limit));
@@ -317,6 +333,7 @@ fn cmd_search(db_path: &PathBuf, rest: &[&str], json: bool) -> Result<()> {
                     n_players: row.get(4)?,
                     timestamp: row.get(5)?,
                     imported_at: row.get(6)?,
+                    duration_frames: row.get(7)?,
                     players: Vec::new(),
                 })
             },
@@ -381,15 +398,100 @@ fn cmd_search(db_path: &PathBuf, rest: &[&str], json: bool) -> Result<()> {
                 .filter(|p| !p.is_observer && !p.is_commentator)
                 .map(|p| p.name.as_str())
                 .collect();
+            // Duration → "MM:SS" at 30 frames/sec; "  —  " when missing.
+            let dur = match r.duration_frames {
+                Some(f) if f > 0 => {
+                    let s = f / 30;
+                    format!("{:>2}:{:02}", s / 60, s % 60)
+                }
+                _ => "  —  ".into(),
+            };
             println!(
-                "[{:>4}] {} · {}p · {} · {}",
+                "[{:>4}] {} {} · {}p · {} · {}",
                 r.id,
                 dt,
+                dur,
                 r.n_players,
                 truncate(&r.map_name, 30),
                 truncate(&humans.join(" vs "), 50)
             );
         }
+    }
+    Ok(())
+}
+
+fn cmd_backfill_duration(db_path: &PathBuf, json: bool) -> Result<()> {
+    use rusqlite::Connection;
+    // Open via Db first so the additive `duration_frames` migration runs on
+    // pre-migration catalogues.
+    drop(Db::open(db_path)?);
+    let conn = Connection::open(db_path)?;
+
+    // Pick rows where duration_frames is NULL and we still have a readable file_path.
+    let mut targets: Vec<(i64, String)> = Vec::new();
+    {
+        let mut stmt = conn.prepare(
+            "SELECT id, file_path FROM replays \
+             WHERE duration_frames IS NULL AND file_path IS NOT NULL",
+        )?;
+        let rows = stmt.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))?;
+        for row in rows {
+            targets.push(row?);
+        }
+    }
+
+    let mut ok = 0usize;
+    let mut missing = 0usize;
+    let mut parse_err = 0usize;
+    let mut total_walked = 0usize;
+    for (id, file_path) in &targets {
+        total_walked += 1;
+        let path = PathBuf::from(file_path);
+        if !path.exists() {
+            missing += 1;
+            continue;
+        }
+        match parser::parse_full(&path) {
+            Ok(replay) => {
+                let frames = replay.duration_frames.unwrap_or(0);
+                conn.execute(
+                    "UPDATE replays SET duration_frames = ?1 WHERE id = ?2",
+                    rusqlite::params![frames as i64, id],
+                )?;
+                ok += 1;
+            }
+            Err(_) => {
+                parse_err += 1;
+                // Mark with 0 so we don't re-attempt forever.
+                let _ = conn.execute(
+                    "UPDATE replays SET duration_frames = 0 WHERE id = ?1",
+                    rusqlite::params![id],
+                );
+            }
+        }
+        if total_walked % 100 == 0 {
+            eprintln!("  ... {total_walked}/{} processed", targets.len());
+        }
+    }
+
+    if json {
+        println!(
+            "{}",
+            serde_json::json!({
+                "candidates": targets.len(),
+                "updated": ok,
+                "file_missing": missing,
+                "parse_error": parse_err,
+            })
+        );
+    } else {
+        println!(
+            "candidates: {} | updated: {} | file_missing: {} | parse_error: {}",
+            targets.len(),
+            ok,
+            missing,
+            parse_err
+        );
     }
     Ok(())
 }

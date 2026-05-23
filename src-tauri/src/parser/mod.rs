@@ -48,6 +48,10 @@ pub fn parse_metadata(path: impl AsRef<Path>) -> Result<Replay> {
 
 /// Parse the metadata header AND walk the command stream to resolve any
 /// Random-faction players' actual assignment from their first build command.
+/// Also records the replay's total simulation-tick count as
+/// `duration_frames` (max `time_code` seen during the walk). Convert to
+/// wall-clock seconds via `frames / 30` (KW's logical tick rate at
+/// game-speed 100).
 ///
 /// More expensive than `parse_metadata` (reads ~the full file once) but
 /// produces complete data — use this for ingest.
@@ -58,6 +62,7 @@ pub fn parse_full(path: impl AsRef<Path>) -> Result<Replay> {
     let mut r = reader::R::new(&mut buf);
     let mut replay = header::read_header_into(&mut r)?;
     replay.file_path = Some(path.to_path_buf());
-    resolver::resolve_actual_factions(&mut r, &mut replay.players)?;
+    let max_tc = resolver::resolve_actual_factions(&mut r, &mut replay.players)?;
+    replay.duration_frames = Some(max_tc);
     Ok(replay)
 }

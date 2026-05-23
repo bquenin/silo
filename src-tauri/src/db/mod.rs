@@ -60,8 +60,8 @@ impl Db {
                 file_hash, file_path, file_size, game,
                 version_major, version_minor, build_major, build_minor,
                 title, description, map_name, map_id, map_path, map_crc,
-                timestamp, n_players, raw_header
-            ) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17)",
+                timestamp, n_players, raw_header, duration_frames
+            ) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18)",
             params![
                 hash,
                 r.file_path.as_ref().map(|p| p.to_string_lossy().into_owned()),
@@ -80,6 +80,7 @@ impl Db {
                 r.timestamp,
                 r.players.len() as i64,
                 r.raw_header,
+                r.duration_frames,
             ],
         )?;
         let replay_id = tx.last_insert_rowid();
@@ -120,7 +121,8 @@ impl Db {
     /// UI gets the actual matchup view).
     pub fn list_replays(&self, limit: i64) -> Result<Vec<ReplayRow>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, file_hash, file_path, map_name, n_players, timestamp, imported_at
+            "SELECT id, file_hash, file_path, map_name, n_players, timestamp,
+                    imported_at, duration_frames
              FROM replays
              ORDER BY imported_at DESC
              LIMIT ?1",
@@ -135,6 +137,7 @@ impl Db {
                     n_players: row.get(4)?,
                     timestamp: row.get(5)?,
                     imported_at: row.get(6)?,
+                    duration_frames: row.get(7)?,
                     players: Vec::new(),
                 })
             })?
@@ -199,6 +202,11 @@ pub struct ReplayRow {
     pub n_players: i64,
     pub timestamp: i64,
     pub imported_at: i64,
+    /// Total simulation ticks (max time_code from chunk walk). `None` for
+    /// replays parsed before the duration column was added, until they're
+    /// backfilled via `tacitus backfill-duration`. Convert to seconds via
+    /// `frames / 30` (KW logical tick rate at game-speed 100).
+    pub duration_frames: Option<i64>,
     pub players: Vec<PlayerSummary>,
 }
 

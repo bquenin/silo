@@ -90,6 +90,7 @@ pub fn read_header_into<T: Read>(r: &mut R<'_, T>) -> Result<Replay> {
         timestamp,
         players,
         raw_header,
+        duration_frames: None,
     })
 }
 

@@ -37,6 +37,27 @@ pub fn apply(conn: &Connection) -> rusqlite::Result<()> {
         CREATE INDEX IF NOT EXISTS idx_replays_timestamp  ON replays(timestamp);
         CREATE INDEX IF NOT EXISTS idx_replays_n_players  ON replays(n_players);
 
+        -- Additive migration: `duration_frames` was added in 2026-05.
+        -- `ALTER TABLE … ADD COLUMN` doesn't support IF NOT EXISTS, so we
+        -- check sqlite_master first. New databases get it via the table
+        -- definition below already including it (after the migration runs
+        -- on any existing db, the column is present going forward).
+        "#,
+    )?;
+
+    let has_column: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM pragma_table_info('replays') WHERE name = 'duration_frames'",
+        [],
+        |r| r.get(0),
+    )?;
+    if has_column == 0 {
+        conn.execute("ALTER TABLE replays ADD COLUMN duration_frames INTEGER", [])?;
+    }
+
+    conn.execute_batch(
+        r#"
+        CREATE INDEX IF NOT EXISTS idx_replays_duration   ON replays(duration_frames);
+
         CREATE TABLE IF NOT EXISTS players (
             id              INTEGER PRIMARY KEY,
             replay_id       INTEGER NOT NULL REFERENCES replays(id) ON DELETE CASCADE,
