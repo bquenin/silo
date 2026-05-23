@@ -6,6 +6,7 @@ authors = ["Bertrand Quenin"]
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/bquenin/tacitus"
+default-run = "tacitus"
 
 [lib]
 name = "tacitus_lib"
