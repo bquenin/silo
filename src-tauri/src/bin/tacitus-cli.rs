@@ -86,6 +86,7 @@ fn run(args: &[String]) -> Result<()> {
         "parse" => cmd_parse(&rest, json),
         "stats" => cmd_stats(&db_path, json),
         "backfill-duration" => cmd_backfill_duration(&db_path, json),
+        "build-order" => cmd_build_order(&rest, json),
         other => Err(anyhow!("unknown subcommand: {}", other)),
     }
 }
@@ -414,6 +415,79 @@ fn cmd_search(db_path: &PathBuf, rest: &[&str], json: bool) -> Result<()> {
                 r.n_players,
                 truncate(&r.map_name, 30),
                 truncate(&humans.join(" vs "), 50)
+            );
+        }
+    }
+    Ok(())
+}
+
+fn cmd_build_order(rest: &[&str], json: bool) -> Result<()> {
+    // Usage: tacitus build-order [--seconds N] [--player NAME] <FILE>
+    let mut seconds: Option<u32> = None;
+    let mut player_filter: Option<String> = None;
+    let mut file: Option<&str> = None;
+    let mut i = 0;
+    while i < rest.len() {
+        match rest[i] {
+            "--seconds" => {
+                i += 1;
+                seconds = Some(
+                    rest.get(i).ok_or_else(|| anyhow!("--seconds needs N"))?.parse()?,
+                );
+            }
+            "--player" => {
+                i += 1;
+                player_filter = Some(rest.get(i).ok_or_else(|| anyhow!("--player needs NAME"))?.to_string());
+            }
+            other if file.is_none() && !other.starts_with("--") => file = Some(other),
+            other => return Err(anyhow!("unexpected arg {other:?}")),
+        }
+        i += 1;
+    }
+    let file = file.ok_or_else(|| anyhow!("usage: tacitus build-order [--seconds N] [--player NAME] <FILE>"))?;
+
+    let max_frames = seconds.map(|s| s * 30);
+    let mut events = parser::extract_build_order(file, max_frames)?;
+
+    // Optional player filter: parse the header to learn player.slot ↔ name,
+    // then drop everything outside the matching slot.
+    if let Some(needle) = &player_filter {
+        let replay = parser::parse_metadata(file)?;
+        let needle_lc = needle.to_lowercase();
+        let matched_slots: std::collections::HashSet<i32> = replay
+            .players
+            .iter()
+            .filter(|p| !p.is_observer && !p.is_commentator)
+            .filter(|p| p.name.to_lowercase().contains(&needle_lc))
+            .map(|p| p.slot as i32)
+            .collect();
+        if matched_slots.is_empty() {
+            return Err(anyhow!(
+                "no player matching {needle:?} in this replay; rosters: {:?}",
+                replay.players.iter().filter(|p| !p.is_observer && !p.is_commentator)
+                    .map(|p| p.name.as_str()).collect::<Vec<_>>()
+            ));
+        }
+        events.retain(|e| matched_slots.contains(&e.player_slot));
+    }
+
+    if json {
+        println!("{}", serde_json::to_string_pretty(&events)?);
+    } else {
+        println!("file: {}", file);
+        if let Some(p) = &player_filter {
+            println!("filtered to player(s) matching {p:?}");
+        }
+        println!("events: {}", events.len());
+        for e in &events {
+            let s = e.time_code / 30;
+            println!(
+                "  {:>2}:{:02}  slot={}  {:9}  template=0x{:08X}",
+                s / 60,
+                s % 60,
+                e.player_slot,
+                e.kind,
+                e.template_hash
             );
         }
     }
