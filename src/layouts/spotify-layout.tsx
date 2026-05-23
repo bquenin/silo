@@ -199,8 +199,17 @@ function PlaylistItem({
 
 function Row({ replay, index }: { replay: Replay; index: number }) {
   const map = replay.map.replace(/^\[[^\]]+\]\s*/, '').replace(/\s+\d+\.\d+\+.*$/, '');
+  const teams = replay.teams ?? [];
+  const isOneV = teams.length === 2 && teams[0]?.length === 1 && teams[1]?.length === 1;
+  const isTeamGame = teams.length === 2 && (teams[0]?.length > 1 || teams[1]?.length > 1);
+  const isFfa = !isOneV && !isTeamGame;
+
+  // Cover gradient: pick two representative factions
+  const lhsFaction = teams[0]?.[0]?.actual ?? 'Rnd';
+  const rhsFaction = teams[teams.length - 1]?.[0]?.actual ?? 'Rnd';
+
   return (
-    <div className="group grid grid-cols-[24px_minmax(0,3fr)_minmax(0,2fr)_120px_120px_80px] gap-4 px-3 py-2 rounded items-center hover:bg-bg-surface cursor-pointer transition-colors">
+    <div className="group grid grid-cols-[24px_minmax(0,3fr)_minmax(0,2fr)_140px_120px_80px] gap-4 px-3 py-2 rounded items-center hover:bg-bg-surface cursor-pointer transition-colors">
       <span className="text-sm text-fg-dim font-mono group-hover:hidden">{index}</span>
       <span className="hidden group-hover:flex text-accent-dim items-center">
         <Play size={12} fill="currentColor" />
@@ -210,16 +219,30 @@ function Row({ replay, index }: { replay: Replay; index: number }) {
         <div
           className="w-9 h-9 rounded shrink-0"
           style={{
-            background: `linear-gradient(135deg, ${factionColor(replay.bro_actual)}99, ${factionColor(replay.opponent_actual)}99)`,
+            background: `linear-gradient(135deg, ${factionColor(lhsFaction)}99, ${factionColor(rhsFaction)}99)`,
           }}
         />
         <div className="min-w-0">
           <div className="text-sm text-fg truncate">
-            {replay.bro_alias}
-            {replay.opponent_name && <span className="text-fg-muted"> vs {replay.opponent_name}</span>}
+            {isOneV && (
+              <>
+                {teams[0][0].name}
+                <span className="text-fg-muted"> vs {teams[1][0].name}</span>
+              </>
+            )}
+            {isTeamGame && (
+              <>
+                <span>{teams[0].map((p) => p.name).join(' · ')}</span>
+                <span className="text-fg-muted"> vs </span>
+                <span>{teams[1].map((p) => p.name).join(' · ')}</span>
+              </>
+            )}
+            {isFfa && (
+              <span>{teams.map((t) => t[0]?.name).filter(Boolean).join(' · ')}</span>
+            )}
           </div>
           <div className="text-xs text-fg-dim truncate">
-            {modeOf(replay.n_players)} · {replay.players.length} players
+            {modeOf(replay.n_players)} · {replay.n_players} players
           </div>
         </div>
       </div>
@@ -227,9 +250,35 @@ function Row({ replay, index }: { replay: Replay; index: number }) {
       <div className="text-sm text-fg-muted truncate">{map}</div>
 
       <div className="flex items-center gap-1 min-w-0">
-        <FactionChip faction={replay.bro_actual ?? 'Rnd'} chosen={replay.players[0]?.chosen} size="sm" showLabel={false} />
-        <span className="text-xs text-fg-dim">vs</span>
-        <FactionChip faction={replay.opponent_actual ?? 'Rnd'} chosen={replay.players[1]?.chosen} size="sm" showLabel={false} />
+        {isOneV && (
+          <>
+            <FactionChip faction={teams[0][0].actual} chosen={teams[0][0].chosen} size="sm" showLabel={false} />
+            <span className="text-xs text-fg-dim">vs</span>
+            <FactionChip faction={teams[1][0].actual} chosen={teams[1][0].chosen} size="sm" showLabel={false} />
+          </>
+        )}
+        {isTeamGame && (
+          <>
+            <div className="flex items-center gap-0.5">
+              {teams[0].map((p, i) => (
+                <FactionChip key={i} faction={p.actual} chosen={p.chosen} size="sm" showLabel={false} />
+              ))}
+            </div>
+            <span className="text-xs text-fg-dim mx-1">vs</span>
+            <div className="flex items-center gap-0.5">
+              {teams[1].map((p, i) => (
+                <FactionChip key={i} faction={p.actual} chosen={p.chosen} size="sm" showLabel={false} />
+              ))}
+            </div>
+          </>
+        )}
+        {isFfa && (
+          <div className="flex items-center gap-0.5 flex-wrap">
+            {teams.map((t, i) => (
+              <FactionChip key={i} faction={t[0]?.actual ?? 'Rnd'} chosen={t[0]?.chosen} size="sm" showLabel={false} />
+            ))}
+          </div>
+        )}
       </div>
 
       <span className="text-xs text-fg-muted">{formatRelative(replay.recorded_at)}</span>

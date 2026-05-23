@@ -8,6 +8,7 @@ export interface Player {
   name: string;
   chosen: Faction | string;
   actual: Faction | string;
+  team?: number;
 }
 
 export interface Replay {
@@ -18,7 +19,11 @@ export interface Replay {
   duration_s?: number;
   recorded_at?: string;
   players: Player[];
-  // derived fields
+  /** Players grouped by team. For 1v1 it's [[p1], [p2]]. For 2v2 [[p1,p2],
+   *  [p3,p4]]. For FFA / unteamed games it's [[p1], [p2], ...] (one solo
+   *  player per slot). */
+  teams: Player[][];
+  // derived fields (only set for 1v1 — convenience for the cover gradient)
   bro_alias?: string;
   bro_actual?: Faction | string;
   opponent_name?: string;

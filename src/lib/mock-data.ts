@@ -11,10 +11,14 @@ function deterministicHash(s: string): number {
 
 const seedReplays: Replay[] = (raw as unknown as Replay[]).map((r) => {
   const h = deterministicHash(r.id);
-  const duration_s = 240 + (h % 1200);   // 4-24 minutes
-  const days_ago = h % 1800;              // 0-5 years ago
+  const duration_s = 240 + (h % 1200);
+  const days_ago = h % 1800;
   const recorded_at = new Date(Date.now() - days_ago * 86400000).toISOString();
-  return { ...r, duration_s, recorded_at };
+  // Synthesize a simple teams array from players[] for mock display.
+  const teams = r.players?.length === 2
+    ? [[r.players[0]], [r.players[1]]]
+    : r.players?.map((p) => [p]) ?? [];
+  return { ...r, duration_s, recorded_at, teams };
 });
 
 // Duplicate the sample into ~600 entries so we can validate infinite scroll.
