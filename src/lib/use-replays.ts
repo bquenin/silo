@@ -14,12 +14,30 @@ import { Replay } from './types';
 
 /** Adapt a `BackendReplayRow` to the Replay shape the UI components expect. */
 function rowToReplay(row: BackendReplayRow): Replay {
+  // Filter to "real" players (no observers, no commentators) so the chips
+  // show the actual matchup. Sort by slot for stable rendering.
+  const realPlayers = row.players
+    .filter((p) => !p.is_observer && !p.is_commentator)
+    .sort((a, b) => a.slot - b.slot);
+
+  const first = realPlayers[0];
+  const second = realPlayers.find((_, i) => i > 0); // any second real player
+
   return {
     id: String(row.id),
     file: row.file_path?.split(/[\\/]/).pop() ?? row.file_hash.slice(0, 12),
     map: row.map_name,
-    n_players: row.n_players,
-    players: [], // detail fetch will fill this later
+    n_players: realPlayers.length || row.n_players,
+    players: realPlayers.map((p) => ({
+      slot: p.slot,
+      name: p.name,
+      chosen: p.chosen_faction,
+      actual: p.actual_faction,
+    })),
+    bro_alias: first?.name,
+    bro_actual: first?.actual_faction,
+    opponent_name: second?.name,
+    opponent_actual: second?.actual_faction,
     recorded_at: row.timestamp ? new Date(row.timestamp * 1000).toISOString() : undefined,
   };
 }

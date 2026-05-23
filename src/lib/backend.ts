@@ -3,6 +3,18 @@
 
 import { invoke } from '@tauri-apps/api/core';
 
+export interface BackendPlayerSummary {
+  slot: number;
+  name: string;
+  clan: string;
+  chosen_faction: string;
+  actual_faction: string;
+  team: number;
+  is_ai: boolean;
+  is_observer: boolean;
+  is_commentator: boolean;
+}
+
 export interface BackendReplayRow {
   id: number;
   file_hash: string;
@@ -11,6 +23,7 @@ export interface BackendReplayRow {
   n_players: number;
   timestamp: number;
   imported_at: number;
+  players: BackendPlayerSummary[];
 }
 
 export interface IngestReport {

@@ -115,7 +115,9 @@ impl Db {
         Ok(n)
     }
 
-    /// List the first `limit` replays, newest-imported first.
+    /// List the first `limit` replays, newest-imported first, with their
+    /// player rosters attached (filtered to non-observer humans + AI so the
+    /// UI gets the actual matchup view).
     pub fn list_replays(&self, limit: i64) -> Result<Vec<ReplayRow>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, file_hash, file_path, map_name, n_players, timestamp, imported_at
@@ -123,7 +125,7 @@ impl Db {
              ORDER BY imported_at DESC
              LIMIT ?1",
         )?;
-        let rows = stmt
+        let mut rows: Vec<ReplayRow> = stmt
             .query_map(params![limit], |row| {
                 Ok(ReplayRow {
                     id: row.get(0)?,
@@ -133,9 +135,57 @@ impl Db {
                     n_players: row.get(4)?,
                     timestamp: row.get(5)?,
                     imported_at: row.get(6)?,
+                    players: Vec::new(),
                 })
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?;
+
+        if rows.is_empty() {
+            return Ok(rows);
+        }
+
+        // Build the IN (...) list and fetch all players in one query.
+        let ids: Vec<String> = rows.iter().map(|r| r.id.to_string()).collect();
+        let placeholders = vec!["?"; ids.len()].join(",");
+        let q = format!(
+            "SELECT replay_id, slot, name, clan, chosen_faction, actual_faction,
+                    team, is_ai, is_observer, is_commentator
+             FROM players WHERE replay_id IN ({})
+             ORDER BY replay_id, slot",
+            placeholders
+        );
+        let params: Vec<&dyn rusqlite::ToSql> = ids.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
+
+        let mut by_id: std::collections::HashMap<i64, Vec<PlayerSummary>> =
+            std::collections::HashMap::new();
+        {
+            let mut pstmt = self.conn.prepare(&q)?;
+            let prows = pstmt.query_map(params.as_slice(), |row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    PlayerSummary {
+                        slot: row.get(1)?,
+                        name: row.get(2)?,
+                        clan: row.get(3)?,
+                        chosen_faction: row.get(4)?,
+                        actual_faction: row.get(5)?,
+                        team: row.get(6)?,
+                        is_ai: row.get::<_, i64>(7)? != 0,
+                        is_observer: row.get::<_, i64>(8)? != 0,
+                        is_commentator: row.get::<_, i64>(9)? != 0,
+                    },
+                ))
+            })?;
+            for r in prows {
+                let (rid, p) = r?;
+                by_id.entry(rid).or_default().push(p);
+            }
+        }
+        for r in &mut rows {
+            if let Some(v) = by_id.remove(&r.id) {
+                r.players = v;
+            }
+        }
         Ok(rows)
     }
 }
@@ -149,6 +199,20 @@ pub struct ReplayRow {
     pub n_players: i64,
     pub timestamp: i64,
     pub imported_at: i64,
+    pub players: Vec<PlayerSummary>,
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct PlayerSummary {
+    pub slot: i64,
+    pub name: String,
+    pub clan: String,
+    pub chosen_faction: String,
+    pub actual_faction: String,
+    pub team: i64,
+    pub is_ai: bool,
+    pub is_observer: bool,
+    pub is_commentator: bool,
 }
 
 /// Suppress unused-import warnings while we ramp up the API surface.
