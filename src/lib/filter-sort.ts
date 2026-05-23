@@ -64,7 +64,7 @@ export function applySort(replays: Replay[], sort: SortState): Replay[] {
       sorted.sort((a, b) => {
         const ta = a.recorded_at ? Date.parse(a.recorded_at) : 0;
         const tb = b.recorded_at ? Date.parse(b.recorded_at) : 0;
-        return sign * (tb - ta);
+        return sign * (ta - tb);
       });
       break;
     case 'map':
@@ -77,7 +77,7 @@ export function applySort(replays: Replay[], sort: SortState): Replay[] {
       sorted.sort((a, b) => {
         const la = a.duration_s ?? 0;
         const lb = b.duration_s ?? 0;
-        return sign * (lb - la);
+        return sign * (la - lb);
       });
       break;
   }
