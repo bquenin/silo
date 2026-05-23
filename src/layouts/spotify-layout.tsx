@@ -10,6 +10,11 @@ import {
 import { FACTION_LABEL } from '../lib/types';
 import type { Replay } from '../lib/types';
 
+// One source of truth for the table grid — header and rows must match exactly,
+// otherwise columns look offset (see "broken column widths" bug).
+const GRID_TEMPLATE =
+  'grid-cols-[28px_minmax(0,2.2fr)_minmax(0,1.3fr)_minmax(220px,1fr)_90px_70px]';
+
 export function SpotifyLayout() {
   const { replays, total, loading, importFolder, live } = useReplays();
   const [query, setQuery] = useState('');
@@ -232,7 +237,7 @@ export function SpotifyLayout() {
 
         {/* table */}
         <div className="flex-1 overflow-y-auto px-6 pb-6">
-          <div className="grid grid-cols-[24px_minmax(0,2fr)_minmax(0,1fr)_minmax(240px,1.5fr)_80px_70px] gap-4 px-3 py-2 text-[10px] uppercase tracking-wider text-fg-dim border-b border-bg-border">
+          <div className={`grid ${GRID_TEMPLATE} gap-4 px-3 py-2 text-[10px] uppercase tracking-wider text-fg-dim border-b border-bg-border`}>
             <span>#</span>
             <span>Title / Players</span>
             <span>Map</span>
@@ -308,7 +313,7 @@ function Row({ replay, index }: { replay: Replay; index: number }) {
   const rhsFaction = teams[teams.length - 1]?.[0]?.actual ?? 'Rnd';
 
   return (
-    <div className="group grid grid-cols-[24px_minmax(0,3fr)_minmax(0,2fr)_140px_120px_80px] gap-4 px-3 py-2 rounded items-center hover:bg-bg-surface cursor-pointer transition-colors">
+    <div className={`group grid ${GRID_TEMPLATE} gap-4 px-3 py-2 rounded items-center hover:bg-bg-surface cursor-pointer transition-colors`}>
       <span className="text-sm text-fg-dim font-mono group-hover:hidden">{index}</span>
       <span className="hidden group-hover:flex text-accent-dim items-center">
         <Play size={12} fill="currentColor" />
