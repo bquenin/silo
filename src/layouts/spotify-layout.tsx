@@ -1,20 +1,33 @@
 import { useState, useMemo } from 'react';
-import { Library, Tag, Search, Play, Filter, MoreHorizontal, ArrowUpDown, Plus } from 'lucide-react';
+import { Library, Tag, Search, Play, Filter, MoreHorizontal, ArrowUpDown, Plus, FolderInput, Loader2 } from 'lucide-react';
 import { FactionChip } from '../components/faction-chip';
-import { REPLAYS, formatDuration, formatRelative, modeOf } from '../lib/mock-data';
+import { formatDuration, formatRelative, modeOf } from '../lib/mock-data';
+import { useReplays } from '../lib/use-replays';
 import type { Replay } from '../lib/types';
 
 export function SpotifyLayout() {
+  const { replays, total, loading, importFolder, live } = useReplays();
   const [query, setQuery] = useState('');
+  const [importStatus, setImportStatus] = useState<string | null>(null);
   const filtered = useMemo(
-    () => REPLAYS.filter(
+    () => replays.filter(
       (r) =>
         r.bro_alias?.toLowerCase().includes(query.toLowerCase()) ||
         r.opponent_name?.toLowerCase().includes(query.toLowerCase()) ||
         r.map.toLowerCase().includes(query.toLowerCase())
     ),
-    [query]
+    [query, replays]
   );
+
+  async function handleImport() {
+    setImportStatus(null);
+    const report = await importFolder();
+    if (!report) return;
+    setImportStatus(
+      `Imported ${report.inserted} new (${report.duplicates} dupes, ${report.errors.length} errors)`
+    );
+    setTimeout(() => setImportStatus(null), 5000);
+  }
 
   return (
     <div className="flex h-full w-full text-fg">
@@ -23,14 +36,30 @@ export function SpotifyLayout() {
         <div className="px-4 py-3 mb-1">
           <div className="flex items-center justify-between mb-3">
             <span className="text-lg font-semibold tracking-wide text-accent">tacitus</span>
-            <button className="text-fg-dim hover:text-fg p-1">
-              <Plus size={16} />
+            <button
+              onClick={handleImport}
+              title={live ? 'Import a folder of .kwreplay files' : 'Run via `npm run tauri dev` to import'}
+              disabled={!live || loading}
+              className="text-fg-dim hover:text-fg p-1 disabled:opacity-40"
+            >
+              {loading ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
             </button>
           </div>
           <button className="w-full flex items-center gap-2 px-2 py-2 rounded bg-bg-elevated text-fg text-sm hover:bg-bg-border transition-colors">
             <Library size={15} /> <span className="flex-1 text-left">Library</span>
-            <span className="text-xs text-fg-dim font-mono">{REPLAYS.length}</span>
+            <span className="text-xs text-fg-dim font-mono">{total}</span>
           </button>
+          {live && total === 0 && (
+            <button
+              onClick={handleImport}
+              className="mt-2 w-full flex items-center gap-2 px-2 py-2 rounded border border-bg-border text-sm text-fg-muted hover:text-fg hover:border-accent-dim transition-colors"
+            >
+              <FolderInput size={14} /> Import folder…
+            </button>
+          )}
+          {importStatus && (
+            <div className="mt-2 text-xs text-accent-dim px-1">{importStatus}</div>
+          )}
         </div>
 
         {/* search-in-library + sort */}
@@ -51,16 +80,7 @@ export function SpotifyLayout() {
 
         {/* playlists / tags */}
         <div className="flex-1 overflow-y-auto px-2">
-          <PlaylistItem label="All Replays" subtitle="Library · 626 items" emoji="📚" active />
-          <PlaylistItem label="Starred" subtitle="Playlist · 12 items" emoji="⭐" />
-          <PlaylistItem label="BRO Played" subtitle="Smart · 593 items" tint="#7be03e" />
-          <PlaylistItem label="1v1 Ladder" subtitle="Smart · 458 items" tint="#e6c34a" />
-          <PlaylistItem label="2v2" subtitle="Smart · 110 items" tint="#d44848" />
-          <PlaylistItem label="Black Hand mirrors" subtitle="Smart · 74 items" tint="#a83232" />
-          <PlaylistItem label="Tournament Rift" subtitle="Smart · 83 items" tint="#4ad4cf" />
-          <PlaylistItem label="BH vs GDI" subtitle="Smart · 64 items" tint="#e6c34a" />
-          <PlaylistItem label="Random vs Random" subtitle="Smart · 178 items" tint="#8b8b91" />
-          <PlaylistItem label="Last week's casts" subtitle="Playlist · 8 items" emoji="🎙️" />
+          <PlaylistItem label="All Replays" subtitle={`Library · ${total} items`} emoji="📚" active />
         </div>
 
         <div className="mt-auto p-3 text-xs text-fg-dim border-t border-bg-border">
@@ -101,7 +121,7 @@ export function SpotifyLayout() {
             <div className="text-xs uppercase tracking-wider text-fg-muted font-medium">Library</div>
             <div className="text-6xl font-bold mt-1 tracking-tight">All Replays</div>
             <div className="text-sm text-fg-muted mt-3">
-              <span className="font-semibold text-fg">tsug303</span> · {REPLAYS.length} replays · 412 MB · last updated today
+              <span className="font-semibold text-fg">{live ? 'Live' : 'Demo'}</span> · {total} replays{live ? '' : ' · mock data'}
             </div>
           </div>
         </div>
@@ -136,8 +156,25 @@ export function SpotifyLayout() {
           {filtered.map((r, i) => (
             <Row key={r.id} replay={r} index={i + 1} />
           ))}
+          {!loading && filtered.length === 0 && (
+            <div className="text-center text-fg-muted py-12">
+              {live ? (
+                <>
+                  <p className="mb-3">No replays in the catalogue yet.</p>
+                  <button
+                    onClick={handleImport}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded bg-accent hover:bg-accent-dim text-bg font-medium transition-colors"
+                  >
+                    <FolderInput size={14} /> Import a folder
+                  </button>
+                </>
+              ) : (
+                <p>No replays match the filter.</p>
+              )}
+            </div>
+          )}
           <div className="text-center text-fg-dim text-xs mt-6 pb-4">
-            {filtered.length} of {REPLAYS.length} replays
+            {filtered.length} of {total} replays
           </div>
         </div>
       </main>
