@@ -133,7 +133,7 @@ export function SpotifyLayout() {
 
         {/* table */}
         <div className="flex-1 overflow-y-auto px-6 pb-6">
-          <div className="grid grid-cols-[24px_minmax(0,3fr)_minmax(0,2fr)_120px_120px_80px] gap-4 px-3 py-2 text-[10px] uppercase tracking-wider text-fg-dim border-b border-bg-border">
+          <div className="grid grid-cols-[24px_minmax(0,2fr)_minmax(0,1fr)_minmax(240px,1.5fr)_80px_70px] gap-4 px-3 py-2 text-[10px] uppercase tracking-wider text-fg-dim border-b border-bg-border">
             <span>#</span>
             <span>Title / Players</span>
             <span>Map</span>
@@ -249,7 +249,7 @@ function Row({ replay, index }: { replay: Replay; index: number }) {
 
       <div className="text-sm text-fg-muted truncate">{map}</div>
 
-      <div className="flex items-center gap-1 min-w-0">
+      <div className="flex items-center gap-1 min-w-0 overflow-hidden">
         {isOneV && (
           <>
             <FactionChip faction={teams[0][0].actual} chosen={teams[0][0].chosen} size="sm" showLabel={false} />
@@ -259,13 +259,13 @@ function Row({ replay, index }: { replay: Replay; index: number }) {
         )}
         {isTeamGame && (
           <>
-            <div className="flex items-center gap-0.5">
+            <div className="flex items-center gap-0.5 flex-wrap">
               {teams[0].map((p, i) => (
                 <FactionChip key={i} faction={p.actual} chosen={p.chosen} size="sm" showLabel={false} />
               ))}
             </div>
-            <span className="text-xs text-fg-dim mx-1">vs</span>
-            <div className="flex items-center gap-0.5">
+            <span className="text-xs text-fg-dim mx-1 shrink-0">vs</span>
+            <div className="flex items-center gap-0.5 flex-wrap">
               {teams[1].map((p, i) => (
                 <FactionChip key={i} faction={p.actual} chosen={p.chosen} size="sm" showLabel={false} />
               ))}
