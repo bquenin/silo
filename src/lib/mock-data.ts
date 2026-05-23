@@ -49,6 +49,13 @@ export function formatRelative(iso?: string) {
   return `${Math.floor(days/365)}y ago`;
 }
 
+export function formatDate(iso?: string) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '—';
+  return d.toISOString().slice(0, 10); // YYYY-MM-DD
+}
+
 export function modeOf(n_players: number): string {
   switch (n_players) {
     case 2: return '1v1';

@@ -1,6 +1,6 @@
 import type { Replay } from './types';
 
-export type SortKey = 'added' | 'recorded' | 'map' | 'players' | 'length';
+export type SortKey = 'recorded' | 'map' | 'players' | 'length';
 export type SortDir = 'asc' | 'desc';
 
 export interface ModeFilter {
@@ -22,8 +22,7 @@ export interface SortState {
 }
 
 export const SORT_LABELS: Record<SortKey, string> = {
-  added: 'Date added',
-  recorded: 'Recorded',
+  recorded: 'Date',
   map: 'Map name',
   players: 'Player count',
   length: 'Length',
@@ -61,8 +60,6 @@ export function applySort(replays: Replay[], sort: SortState): Replay[] {
   const sign = sort.dir === 'asc' ? 1 : -1;
   const sorted = [...replays];
   switch (sort.key) {
-    case 'added':
-      // Mock data doesn't carry imported_at — fall through to recorded.
     case 'recorded':
       sorted.sort((a, b) => {
         const ta = a.recorded_at ? Date.parse(a.recorded_at) : 0;

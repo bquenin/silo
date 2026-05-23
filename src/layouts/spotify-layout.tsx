@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Library, Tag, Search, Play, ArrowUpDown, Plus, FolderInput, Loader2, X, ChevronDown, Check } from 'lucide-react';
 import { FactionChip } from '../components/faction-chip';
-import { formatDuration, formatRelative, modeOf } from '../lib/mock-data';
+import { formatDate, formatDuration, modeOf } from '../lib/mock-data';
 import { useReplays } from '../lib/use-replays';
 import {
   applyFilters, applySort, FACTIONS, MODE_OPTIONS, SORT_LABELS,
@@ -22,7 +22,7 @@ export function SpotifyLayout() {
   const [filter, setFilter] = useState<FilterState>({
     search: '', mode: { n_players: null }, factions: new Set(),
   });
-  const [sort, setSort] = useState<SortState>({ key: 'added', dir: 'desc' });
+  const [sort, setSort] = useState<SortState>({ key: 'recorded', dir: 'desc' });
   const [showSortMenu, setShowSortMenu] = useState(false);
 
   const filtered = useMemo(() => {
@@ -242,7 +242,7 @@ export function SpotifyLayout() {
             <span>Title / Players</span>
             <span>Map</span>
             <span>Matchup</span>
-            <span>Added</span>
+            <span>Date</span>
             <span className="text-right">Length</span>
           </div>
           {filtered.map((r, i) => (
@@ -385,7 +385,7 @@ function Row({ replay, index }: { replay: Replay; index: number }) {
         )}
       </div>
 
-      <span className="text-xs text-fg-muted">{formatRelative(replay.recorded_at)}</span>
+      <span className="text-xs text-fg-muted font-mono">{formatDate(replay.recorded_at)}</span>
       <span className="text-xs text-fg-muted text-right font-mono">{formatDuration(replay.duration_s)}</span>
     </div>
   );
