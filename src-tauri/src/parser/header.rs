@@ -9,20 +9,26 @@ use super::types::{Faction, Player, Replay};
 
 const KW_MAGIC_SIZE: usize = 18;
 const KW_U1_SIZE: usize = 33;
+const KW_U2_SIZE: usize = 19;
 
+/// Convenience wrapper — read header from a stream that doesn't need further
+/// processing.
 pub fn read_header<T: Read>(inner: &mut T) -> Result<Replay> {
     let mut r = R::new(inner);
+    read_header_into(&mut r)
+}
 
+/// Read the full pre-chunk preamble. After this returns, `r` is positioned at
+/// the start of the chunk stream so the caller can keep reading commands.
+pub fn read_header_into<T: Read>(r: &mut R<'_, T>) -> Result<Replay> {
     let magic = r.read_cstr(KW_MAGIC_SIZE)?;
-    if !magic.starts_with("C&C3") && !magic.starts_with("KW") && !magic.contains("REPLAY") {
-        // KW magic in the file we've seen is "C&C3 REPLAY HEADER" (18 chars).
+    if !magic.contains("REPLAY") && !magic.starts_with("C&C3") {
         return Err(ParseError::BadMagic { got: magic.clone() });
     }
 
-    // network info: hnumber1 is ONE BYTE (read_byte in the Python parser, not
-    // read_uint32). 5 = internet game, 4 = network game, otherwise skirmish.
-    // No additional bytes follow regardless of value.
-    let hnumber1 = r.read_u8()?;
+    // game_network_info reads a single byte (5 = internet game, 4 = network,
+    // anything else = skirmish). No extra bytes follow.
+    let _hnumber1 = r.read_u8()?;
 
     let vermajor = r.read_u32_le()?;
     let verminor = r.read_u32_le()?;
@@ -34,32 +40,39 @@ pub fn read_header<T: Read>(inner: &mut T) -> Result<Replay> {
     let map_name = r.read_tb_str(None)?;
     let map_id = r.read_tb_str(None)?;
 
-    // Player slots in the binary header — just id + name (+ team if hn1==5).
-    // The richer roster lives in the ASCII header below; we still skip these
-    // properly so the file offset stays aligned.
+    // Per-slot id+name (+ team for internet games). We don't currently need
+    // these values — the richer roster is in the ASCII `S=` block below.
     let player_cnt = r.read_u8()?;
     for _ in 0..=player_cnt {
         let _id = r.read_u32_le()?;
         let _name = r.read_tb_str(None)?;
-        if hnumber1 == 5 {
+        if _hnumber1 == 5 {
             let _team = r.read_u8()?;
         }
     }
-    // Suppress unused-var warning on hnumber1 when not internet game
-    let _ = hnumber1;
 
     let _offset = r.read_u32_le()?;
     let repl_length = r.read_u32_le()?;
     let _repl_magic = r.read_cstr(repl_length as usize)?;
-
-    // CNC3 / RA3 carry a 22-byte mod_info here. KW does not, so we skip the
-    // branch. If we ever support CNC3/RA3 we'd add it.
 
     let timestamp = r.read_u32_le()?;
     r.skip(KW_U1_SIZE)?;
 
     let header_len = r.read_u32_le()?;
     let raw_header = r.read_cstr(header_len as usize)?;
+
+    // Tail of the pre-chunk preamble. We consume but ignore.
+    let _replay_saver = r.read_u8()?;
+    let _zero3 = r.read_u32_le()?;
+    let _zero4 = r.read_u32_le()?;
+    let filename_length = r.read_u32_le()?;
+    let _filename = r.read_tb_str(Some(filename_length as usize))?;
+    let _date_time = r.read_tb_str(Some(8))?;
+    let vermagic_len = r.read_u32_le()?;
+    let _vermagic = r.read_cstr(vermagic_len as usize)?;
+    let _magic_hash = r.read_u32_le()?;
+    let _zero5 = r.read_u8()?;
+    r.skip(KW_U2_SIZE * 4)?;
 
     let (map_path, map_crc, players) = decode_header(&raw_header)?;
 
@@ -81,18 +94,12 @@ pub fn read_header<T: Read>(inner: &mut T) -> Result<Replay> {
 }
 
 /// Decode the `key=value;key=value;…` ASCII header.
-///
-/// Only `M=`, `MC=`, and `S=` are interesting for v1. The `S=` value is a
-/// colon-separated list of player records like `H<name>,<ip>,...,<clan>`
-/// for humans or `C<difficulty>,<color>,<faction>,...` for AI.
 fn decode_header(header: &str) -> Result<(String, String, Vec<Player>)> {
     let mut map_path = String::new();
     let mut map_crc = String::new();
     let mut players: Vec<Player> = Vec::new();
 
     for pair in header.split(';') {
-        // Some player names contain `=` so we must only split at the FIRST one,
-        // per the Python parser's comment.
         let mut it = pair.splitn(2, '=');
         let (k, v) = match (it.next(), it.next()) {
             (Some(k), Some(v)) => (k, v),
@@ -123,8 +130,6 @@ fn decode_player_roster(s: &str) -> Result<Vec<Player>> {
 }
 
 fn decode_player(raw: &str, slot: u32) -> Result<Option<Player>> {
-    // Split on commas; the first field carries the leading H or C prefix
-    // bonded to the player name (e.g. "Hbike-RUsh+ownz+").
     let parts: Vec<&str> = raw.split(',').collect();
     if parts.is_empty() {
         return Ok(None);
@@ -142,6 +147,7 @@ fn decode_player(raw: &str, slot: u32) -> Result<Option<Player>> {
         name,
         clan: String::new(),
         chosen_faction: Faction::Random,
+        actual_faction: Faction::Random,
         team: -1,
         color: -1,
         handicap: 0,
@@ -151,12 +157,12 @@ fn decode_player(raw: &str, slot: u32) -> Result<Option<Player>> {
     };
 
     if kind == 'H' {
-        // Human layout (per Python `decode_human`):
-        //   0:H<name> 1:ip 2:? 3:tt_or_ft 4:color 5:faction 6:? 7:team 8:hcap 9:? 10:? 11:clan
+        // Human: 0:H<name> 1:ip 2:? 3:tt_or_ft 4:color 5:faction 6:? 7:team 8:hcap 9:? 10:? 11:clan
         if parts.len() >= 6 {
             p.color = parts[4].parse().unwrap_or(-1);
             let fac_raw: i32 = parts[5].parse().unwrap_or(1);
             p.chosen_faction = Faction::from_raw(fac_raw).unwrap_or(Faction::Random);
+            p.actual_faction = p.chosen_faction;
         }
         if parts.len() >= 8 {
             p.team = parts[7].parse::<i32>().unwrap_or(-1) + 1;
@@ -168,12 +174,12 @@ fn decode_player(raw: &str, slot: u32) -> Result<Option<Player>> {
             p.clan = parts[11].to_string();
         }
     } else {
-        // AI layout (per Python `decode_ai`):
-        //   0:C<difficulty> 1:color 2:faction 3:? 4:team 5:handicap 6:personality
+        // AI: 0:C<difficulty> 1:color 2:faction 3:? 4:team 5:handicap 6:personality
         if parts.len() >= 3 {
             p.color = parts[1].parse().unwrap_or(-1);
             let fac_raw: i32 = parts[2].parse().unwrap_or(1);
             p.chosen_faction = Faction::from_raw(fac_raw).unwrap_or(Faction::Random);
+            p.actual_faction = p.chosen_faction;
         }
         if parts.len() >= 5 {
             p.team = parts[4].parse::<i32>().unwrap_or(-1) + 1;
@@ -181,7 +187,6 @@ fn decode_player(raw: &str, slot: u32) -> Result<Option<Player>> {
         if parts.len() >= 6 {
             p.handicap = parts[5].parse().unwrap_or(0);
         }
-        // Map the AI difficulty code to a friendly name (CE/CM/CH/CB).
         p.name = match p.name.as_str() {
             "E" => "Easy (AI)".into(),
             "M" => "Medium (AI)".into(),

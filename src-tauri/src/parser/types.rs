@@ -74,7 +74,12 @@ pub struct Player {
     pub slot: u32,
     pub name: String,
     pub clan: String,
+    /// What the player picked in the lobby (Random / Gdi / etc.).
     pub chosen_faction: Faction,
+    /// What the engine actually assigned them. Equals `chosen_faction`
+    /// unless `chosen_faction == Random` and we successfully resolved it
+    /// from the first build command (see `resolver::resolve_actual_factions`).
+    pub actual_faction: Faction,
     pub team: i32,
     pub color: i32,
     pub handicap: i32,

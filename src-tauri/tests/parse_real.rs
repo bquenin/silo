@@ -50,6 +50,55 @@ fn parses_one_replay() {
 }
 
 #[test]
+fn resolves_random_factions() {
+    let Some(root) = corpus_dir() else {
+        eprintln!("corpus not present, skipping");
+        return;
+    };
+    // Pick the first replay that has at least one Random human.
+    let mut tried = 0;
+    let mut resolved_count = 0;
+    let mut still_random = 0;
+    for entry in walkdir::WalkDir::new(&root).max_depth(3) {
+        let entry = match entry { Ok(e) => e, Err(_) => continue };
+        if !entry.path().extension().and_then(|e| e.to_str())
+            .is_some_and(|e| e.eq_ignore_ascii_case("kwreplay")) {
+            continue;
+        }
+        tried += 1;
+        let r = match parser::parse_full(entry.path()) {
+            Ok(r) => r,
+            Err(_) => continue,
+        };
+        let has_random = r.players.iter().any(|p|
+            matches!(p.chosen_faction, parser::Faction::Random) && !p.is_observer
+        );
+        if !has_random { continue; }
+        for p in &r.players {
+            if !matches!(p.chosen_faction, parser::Faction::Random) || p.is_observer {
+                continue;
+            }
+            if matches!(p.actual_faction, parser::Faction::Random) {
+                still_random += 1;
+            } else {
+                resolved_count += 1;
+            }
+        }
+        if tried > 200 { break; } // sample
+    }
+    println!("resolved {} random→faction; {} still random", resolved_count, still_random);
+    assert!(resolved_count > 0, "no random players resolved at all");
+    // Vast majority should resolve.
+    let total = resolved_count + still_random;
+    assert!(
+        (resolved_count as f64) / (total as f64) >= 0.8,
+        "low resolution rate: {} / {}",
+        resolved_count,
+        total
+    );
+}
+
+#[test]
 fn parses_many_replays() {
     let Some(root) = corpus_dir() else {
         eprintln!("corpus not present, skipping");
