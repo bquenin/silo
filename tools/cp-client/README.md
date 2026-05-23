@@ -51,6 +51,12 @@ python -m cp_client fetch_replays
 # page 2 of the list, filtered by uploader nick
 python -m cp_client fetch_replays page_cur=2 search_text="::uploader:Cranium"
 
+# single-replay lookup — the only call that returns a download `url`
+python -m cp_client fetch_replay_detail 137
+
+# bytes — saves the .KWReplay to disk
+python -m cp_client download_replay 137 -o bro_137.kwreplay
+
 # user lookup (note the field is `users_search_text`, not `search_text`)
 python -m cp_client fetch_users users_search_text="::user_id:122"
 
@@ -154,7 +160,8 @@ All 15 endpoints observed in the capture, with **confirmed** field names:
 | `ping` | — | empty 0 B response |
 | `get_all_info` | — | bootstrap, ~39 KB |
 | `automatcher` | `page_cur` (sometimes) | 718 B fixed |
-| `fetch_replays` | `page_cur`, `sort_by`, `sort_dir`, `search_text` | paginated list |
+| `fetch_replays` (list) | `page_cur`, `sort_by`, `sort_dir`, `search_text` | paginated list — list-mode records do **not** carry `url` |
+| `fetch_replays` (detail) | `type=4`, `replay_id` | single-record mode wrapped as `fetch_replay_detail()` / `download_replay()`; this is the **only** call that enriches the record with the binary download `url` |
 | `fetch_users` | `users_search_text` + `$is_info` + `$window_id`, OR `all_users=1` | targeted vs full-dump modes |
 | `fetch_activity` | `search_text` (uses `::player:` DSL) | |
 | `fetch_stats` | list mode: `page_cur`, `sort_by`, `sort_dir`, `search_text` | |
@@ -176,6 +183,27 @@ not sent in the request).
 Public asset GETs (no auth, no envelope):
 - `/production/public/profiles/<user_id>/avatar_<unix_ts>.{png,jpg,jpeg}`
 - `/production/public/images/icon_{gdi,nod,question}.png`
+- `/production/public/replays/<filename>.KWReplay` — `application/octet-stream`,
+  no per-asset auth, but the filename is opaque (not derivable from the
+  numeric `id`). Get it from `fetch_replay_detail()` first.
+
+### Replay download flow
+
+1. Find candidate replays via `fetch_replays(search_text=...)` — list-mode
+   records have `id`, `data.players`, `data.match_date`, etc. but no `url`.
+2. For each one you want, call `fetch_replay_detail(replay_id)` (or just
+   `download_replay()`, which does both steps). This hits the same
+   `fetch_replays.php` endpoint with `type=4` + `replay_id=<id>` and the
+   response is a **1-element list** where the record carries an extra
+   `url` field pointing at the public asset.
+3. GET the `url`. Filenames can contain `#`, spaces, and brackets; the
+   client percent-encodes the path before issuing the request because
+   `requests` won't (a literal `#` would otherwise be treated as a URL
+   fragment and silently dropped).
+
+Some old replays return an empty filename in the `url` (just
+`/production/public/replays/`) and 403 on download — the metadata row
+outlives the file on disk.
 
 ## Wire shape
 

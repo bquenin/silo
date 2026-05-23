@@ -36,7 +36,13 @@ pub fn ingest_path(db: &mut Db, path: &Path) -> Result<IngestReport> {
                 Ok(e) => e,
                 Err(_) => continue,
             };
-            if entry.path().extension().and_then(|e| e.to_str()) != Some("kwreplay") {
+            let ext_ok = entry
+                .path()
+                .extension()
+                .and_then(|e| e.to_str())
+                .map(|e| e.eq_ignore_ascii_case("kwreplay"))
+                .unwrap_or(false);
+            if !ext_ok {
                 continue;
             }
             ingest_one(db, entry.path(), &mut report);

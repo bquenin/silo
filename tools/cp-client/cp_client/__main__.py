@@ -14,6 +14,12 @@ Examples
     # resolve nicks to user_ids
     python -m cp_client fetch_nicks nicks=TsuG,Cranium
 
+    # single-replay detail (includes the download `url` field)
+    python -m cp_client fetch_replay_detail 137
+
+    # download a replay's .KWReplay bytes
+    python -m cp_client download_replay 137 --output bro_137.kwreplay
+
     # arbitrary endpoint not in the wrapper list
     python -m cp_client call some_new_endpoint foo=bar
 
@@ -62,6 +68,10 @@ def _make_parser() -> argparse.ArgumentParser:
     parser.add_argument("--raw", action="store_true", help="print the whole envelope, not just .output")
     parser.add_argument("--asset", action="store_true", help="treat 'endpoint' as an asset path and dump bytes to stdout")
     parser.add_argument(
+        "--output", "-o", default=None,
+        help="for download_replay: write bytes to this path instead of stdout",
+    )
+    parser.add_argument(
         "--base-url",
         default=None,
         help="override base URL (defaults to CP_BASE_URL env or https://cgf-uploads.net)",
@@ -103,6 +113,31 @@ def main(argv: list[str] | None = None) -> int:
             custom_endpoint = args.fields[0]
             fields = _parse_kv(args.fields[1:])
             env = client.call(custom_endpoint, fields=fields)
+        elif args.endpoint == "download_replay":
+            if not args.fields or "=" in args.fields[0]:
+                print("download_replay requires a positional <replay_id>", file=sys.stderr)
+                return 2
+            replay_id = args.fields[0]
+            content, detail = client.download_replay(replay_id)
+            if args.output:
+                with open(args.output, "wb") as f:
+                    f.write(content)
+                print(
+                    f"wrote {len(content)} bytes to {args.output} "
+                    f"(title={detail.get('title')!r}, url={detail.get('url')})",
+                    file=sys.stderr,
+                )
+            else:
+                sys.stdout.buffer.write(content)
+            return 0
+        elif args.endpoint == "fetch_replay_detail":
+            if not args.fields or "=" in args.fields[0]:
+                print("fetch_replay_detail requires a positional <replay_id>", file=sys.stderr)
+                return 2
+            detail = client.fetch_replay_detail(args.fields[0])
+            json.dump(detail, sys.stdout, indent=2, default=str, ensure_ascii=False)
+            sys.stdout.write("\n")
+            return 0
         elif args.endpoint in ENDPOINTS:
             fields = _parse_kv(args.fields)
             method = getattr(client, args.endpoint)

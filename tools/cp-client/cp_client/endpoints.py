@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .client import CommandPostClient, Envelope
+from .client import CommandPostClient, CommandPostError, Envelope
 
 #: All endpoints observed in captures.
 ENDPOINTS: tuple[str, ...] = (
@@ -101,6 +101,10 @@ class CommandPostAPI(CommandPostClient):
         ``is_bookmarked``, ``match_id``, ``uploader_name``,
         ``uploader_avatar``, ``downloads``, ``likes``, ``comments``,
         ``is_liked``, ``downloaders`` (nested list of users who downloaded).
+
+        The list-mode response does **not** include the binary download
+        ``url``. To get that, call :meth:`fetch_replay_detail` (which uses
+        the ``type=4`` single-replay mode) or :meth:`download_replay`.
         """
         fields: dict[str, Any] = {
             "page_cur": page_cur,
@@ -110,6 +114,75 @@ class CommandPostAPI(CommandPostClient):
             **extra,
         }
         return self.call("fetch_replays", fields=fields)
+
+    def fetch_replay_detail(self, replay_id: int | str, **extra: Any) -> dict:
+        """Single-replay lookup — the only way to get the download ``url``.
+
+        Wraps ``fetch_replays.php`` in its ``type=4`` mode (different from
+        the paginated list). The response is a 1-element list; we unwrap
+        and return the record directly. Notably, this record adds a
+        ``url`` field that points at
+        ``https://cgf-uploads.net/production/public/replays/<filename>.KWReplay``
+        — a plain octet-stream GET, no auth on the asset itself.
+
+        Use :meth:`download_replay` for the convenience download.
+        """
+        fields: dict[str, Any] = {"type": 4, "replay_id": replay_id, **extra}
+        env = self.call("fetch_replays", fields=fields)
+        out = env.output
+        if isinstance(out, list) and out:
+            return out[0]
+        if isinstance(out, dict):
+            return out
+        raise CommandPostError(
+            f"fetch_replay_detail({replay_id}) returned empty output", envelope=env
+        )
+
+    def download_replay(
+        self,
+        replay_id: int | str,
+        *,
+        detail: dict | None = None,
+    ) -> tuple[bytes, dict]:
+        """Download the raw ``.KWReplay`` bytes for ``replay_id``.
+
+        Two-step under the hood:
+
+        1. ``fetch_replays type=4 replay_id=<id>`` → returns the record
+           with a populated ``url`` field. Skipped if ``detail`` is passed
+           (already-known record from a previous :meth:`fetch_replay_detail`
+           call).
+        2. ``GET <url>`` → raw bytes. The asset endpoint at
+           ``/production/public/replays/<filename>`` returns
+           ``application/octet-stream`` without any further auth on the
+           GET itself.
+
+        Returns ``(bytes, detail_record)``. The detail record's ``size``
+        field should match ``len(bytes)``.
+        """
+        if detail is None:
+            detail = self.fetch_replay_detail(replay_id)
+        url = detail.get("url")
+        if not url:
+            raise CommandPostError(
+                f"replay {replay_id} record has no download url "
+                "(may be private or removed). Fields: "
+                + ", ".join(sorted(detail.keys()))
+            )
+        # Server returns the URL with the raw replay filename (which can
+        # contain ``#``, spaces, brackets, etc.). The ``#`` in particular
+        # is a URL fragment separator and ``requests`` will silently drop
+        # everything after it unless we percent-encode the path first.
+        # We only re-encode the path/filename — scheme + host stay as-is.
+        from urllib.parse import quote, urlsplit, urlunsplit
+        parts = urlsplit(url)
+        encoded_path = quote(parts.path, safe="/")
+        safe_url = urlunsplit(
+            (parts.scheme, parts.netloc, encoded_path, parts.query, "")
+        )
+        resp = self.session.get(safe_url, timeout=self.timeout)
+        resp.raise_for_status()
+        return resp.content, detail
 
     # ----- user directory ---------------------------------------------------
 
