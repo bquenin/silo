@@ -30,7 +30,12 @@ pub fn resolve_actual_factions<T: Read>(r: &mut R<'_, T>, players: &mut [Player]
         return Ok(());
     }
 
-    walk_commands(r, &[0x2D, 0x31], |cmd| {
+    // Walking the chunk stream can hit EOF mid-chunk on a small number of
+    // truncated / malformed replays from the corpus. Treat that as "best-
+    // effort" rather than failing the whole parse — the metadata is still
+    // valid and we just don't get to resolve any Random players from this
+    // particular file.
+    let res = walk_commands(r, &[0x2D, 0x31], |cmd| {
         if pending.is_empty() {
             return;
         }
@@ -41,11 +46,15 @@ pub fn resolve_actual_factions<T: Read>(r: &mut R<'_, T>, players: &mut [Player]
         let hash = cmd.queue_template_hash().or_else(|| cmd.placedown_template_hash());
         let Some(h) = hash else { return };
         let Some(f) = resolve_template_to_faction(h) else { return };
-        // Find the player by slot — may not be O(1) but the roster is tiny.
         if let Some(p) = players.iter_mut().find(|p| p.slot as i32 == pid) {
             p.actual_faction = f;
             pending.remove(&pid);
         }
-    })?;
+    });
+    if let Err(super::error::ParseError::Eof { .. }) = res {
+        // soft-fail; keep whatever we resolved
+    } else {
+        res?;
+    }
     Ok(())
 }
