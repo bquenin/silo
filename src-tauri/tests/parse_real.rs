@@ -1,0 +1,87 @@
+//! Smoke test against actual `.kwreplay` files in TACITUS_REPLAY_CORPUS.
+//!
+//! Skipped when TACITUS_REPLAY_CORPUS is unset. The optional collection
+//! should include matches where players chose Random.
+
+use std::path::PathBuf;
+
+use tacitus_lib::parser;
+
+fn corpus_dir() -> Option<PathBuf> {
+    let p = PathBuf::from(std::env::var_os("TACITUS_REPLAY_CORPUS")?);
+    if p.is_dir() { Some(p) } else { None }
+}
+
+#[test]
+fn parses_one_replay() {
+    let Some(root) = corpus_dir() else {
+        eprintln!("corpus not present, skipping");
+        return;
+    };
+    let mut sample: Option<PathBuf> = None;
+    for entry in walkdir::WalkDir::new(&root).max_depth(3) {
+        let entry = entry.unwrap();
+        if entry.path().extension().and_then(|e| e.to_str())
+            .is_some_and(|e| e.eq_ignore_ascii_case("kwreplay")) {
+            sample = Some(entry.path().to_path_buf());
+            break;
+        }
+    }
+    let sample = sample.expect("no .kwreplay file in corpus");
+    let r = parser::parse_metadata(&sample).expect("parse failed");
+
+    println!("file: {}", sample.display());
+    println!("magic: {:?}", r.magic);
+    println!("game: {}  version: {:?}", r.game, r.version);
+    println!("map_name: {:?}", r.map_name);
+    println!("map_path: {:?}", r.map_path);
+    println!("map_crc: {:?}", r.map_crc);
+    println!("timestamp: {}", r.timestamp);
+    println!("players ({}):", r.players.len());
+    for p in &r.players {
+        println!(
+            "  slot {} {:?} faction={} team={} clan={:?} ai={} obs={}",
+            p.slot, p.name, p.chosen_faction.short(), p.team, p.clan, p.is_ai, p.is_observer
+        );
+    }
+
+    assert!(r.map_name.len() > 0, "map name should be non-empty");
+    assert!(r.players.len() > 0, "should have at least one player");
+}
+
+#[test]
+fn parses_many_replays() {
+    let Some(root) = corpus_dir() else {
+        eprintln!("corpus not present, skipping");
+        return;
+    };
+    let mut total = 0usize;
+    let mut ok = 0usize;
+    let mut errors: Vec<(PathBuf, String)> = Vec::new();
+    for entry in walkdir::WalkDir::new(&root).max_depth(3) {
+        let entry = match entry { Ok(e) => e, Err(_) => continue };
+        if !entry.path().extension().and_then(|e| e.to_str())
+            .is_some_and(|e| e.eq_ignore_ascii_case("kwreplay")) {
+            continue;
+        }
+        total += 1;
+        match parser::parse_metadata(entry.path()) {
+            Ok(_) => ok += 1,
+            Err(e) => errors.push((entry.path().to_path_buf(), e.to_string())),
+        }
+    }
+    println!("parsed {} / {} replays OK", ok, total);
+    for (p, e) in errors.iter().take(10) {
+        println!("  FAIL {}: {}", p.display(), e);
+    }
+    assert!(total > 0, "no replays found");
+    // Allow up to 10% failures for malformed / non-KW files (some .cnc3replay
+    // may have ended up in the corpus).
+    let max_fail = (total as f64 * 0.10) as usize;
+    assert!(
+        errors.len() <= max_fail.max(5),
+        "too many failures: {} / {}",
+        errors.len(),
+        total
+    );
+}
