@@ -4,10 +4,23 @@
 //!
 //!   tacitus import <PATH>           — walk a file or dir, insert .kwreplay
 //!   tacitus ls [--limit N]          — list catalogue entries
+//!   tacitus search [filters...]     — filter the catalogue (see below)
 //!   tacitus count                   — total replays in catalogue
 //!   tacitus parse <FILE>            — parse one file, print metadata
 //!   tacitus parse --full <FILE>     — parse + resolve Random factions
 //!   tacitus stats                   — high-level corpus aggregates
+//!
+//! Search filters (combinable; all narrow the result set):
+//!   --player NAME       substring match on any player.name (case-insensitive)
+//!   --map SUB           substring match on map_name (case-insensitive)
+//!   --faction CODE      any player's actual_faction == CODE (GDI, Nod, Sc, BH, …)
+//!   --mode 1v1|2v2|3v3|4v4|ffa
+//!   --year YYYY         matches the replay's recorded timestamp
+//!   --since YYYY-MM-DD  timestamp >= date (UTC)
+//!   --until YYYY-MM-DD  timestamp <= date (UTC)
+//!   --limit N           default 50
+//!   --sort recorded|map|players|length  default recorded
+//!   --order asc|desc                    default desc
 //!
 //! Common flags:
 //!   --db PATH       — override the catalogue path (default OS-appropriate)
@@ -65,6 +78,7 @@ fn run(args: &[String]) -> Result<()> {
     match subcmd.as_str() {
         "import" => cmd_import(&db_path, &rest, json),
         "ls" => cmd_ls(&db_path, &rest, json),
+        "search" => cmd_search(&db_path, &rest, json),
         "count" => cmd_count(&db_path, json),
         "parse" => cmd_parse(&rest, json),
         "stats" => cmd_stats(&db_path, json),
@@ -83,10 +97,23 @@ USAGE:
 SUBCOMMANDS:
     import <PATH>       Walk PATH (file or dir) and ingest every .kwreplay
     ls [--limit N]      List replays, newest first (default 20)
+    search [filters]    Filter catalogue (see --help for filter flags)
     count               Print total replays in catalogue
     parse <FILE>        Parse one file; print map + players + factions
     parse --full FILE   Same as parse, but also resolve Random factions
     stats               Per-faction / per-matchup corpus aggregates
+
+SEARCH FLAGS (combinable):
+    --player NAME       substring match on any player.name (case-insensitive)
+    --map SUB           substring match on map_name (case-insensitive)
+    --faction CODE      any player's actual_faction == CODE
+    --mode 1v1|2v2|3v3|4v4|ffa
+    --year YYYY
+    --since YYYY-MM-DD
+    --until YYYY-MM-DD
+    --limit N           default 50
+    --sort KEY          recorded (default) | map | players | length
+    --order asc|desc    default desc
 
 GLOBAL FLAGS:
     --db PATH           Use catalogue at PATH (default: OS-appropriate)
@@ -134,6 +161,233 @@ fn cmd_ls(db_path: &PathBuf, rest: &[&str], json: bool) -> Result<()> {
                 truncate(&r.map_name, 40),
                 r.n_players,
                 r.file_path.as_deref().unwrap_or("?")
+            );
+        }
+    }
+    Ok(())
+}
+
+fn cmd_search(db_path: &PathBuf, rest: &[&str], json: bool) -> Result<()> {
+    use rusqlite::{params_from_iter, Connection};
+    use tacitus_lib::db::{PlayerSummary, ReplayRow};
+
+    // -- parse flags --
+    let mut player: Option<String> = None;
+    let mut map: Option<String> = None;
+    let mut faction: Option<String> = None;
+    let mut mode: Option<i64> = None;
+    let mut year: Option<i64> = None;
+    let mut since: Option<i64> = None;
+    let mut until: Option<i64> = None;
+    let mut limit: i64 = 50;
+    let mut sort_key = "recorded".to_string();
+    let mut order = "desc".to_string();
+
+    let parse_ymd = |s: &str| -> Result<i64> {
+        // YYYY-MM-DD → unix timestamp (UTC midnight).
+        let parts: Vec<&str> = s.split('-').collect();
+        if parts.len() != 3 {
+            return Err(anyhow!("bad date {s:?}; expected YYYY-MM-DD"));
+        }
+        let (y, m, d): (i32, u32, u32) = (parts[0].parse()?, parts[1].parse()?, parts[2].parse()?);
+        // simple UTC-midnight epoch via chrono
+        let dt = chrono::NaiveDate::from_ymd_opt(y, m, d)
+            .ok_or_else(|| anyhow!("invalid date {s:?}"))?
+            .and_hms_opt(0, 0, 0)
+            .unwrap()
+            .and_utc();
+        Ok(dt.timestamp())
+    };
+
+    let mut i = 0;
+    while i < rest.len() {
+        let f = rest[i];
+        let next = |i: &mut usize, name: &str| -> Result<&str> {
+            *i += 1;
+            rest.get(*i).copied().ok_or_else(|| anyhow!("{} needs a value", name))
+        };
+        match f {
+            "--player" => player = Some(next(&mut i, "--player")?.into()),
+            "--map" => map = Some(next(&mut i, "--map")?.into()),
+            "--faction" => faction = Some(next(&mut i, "--faction")?.into()),
+            "--mode" => {
+                let v = next(&mut i, "--mode")?;
+                let n = match v.to_ascii_lowercase().as_str() {
+                    "1v1" => 2, "ffa" => 3, "2v2" => 4, "3v3" => 6, "4v4" => 8,
+                    other => other.parse::<i64>()
+                        .map_err(|_| anyhow!("unknown mode {other:?}; use 1v1/2v2/3v3/4v4/ffa or n_players int"))?,
+                };
+                mode = Some(n);
+            }
+            "--year" => year = Some(next(&mut i, "--year")?.parse()?),
+            "--since" => since = Some(parse_ymd(next(&mut i, "--since")?)?),
+            "--until" => until = Some(parse_ymd(next(&mut i, "--until")?)?),
+            "--limit" => limit = next(&mut i, "--limit")?.parse()?,
+            "--sort" => sort_key = next(&mut i, "--sort")?.into(),
+            "--order" => order = next(&mut i, "--order")?.to_ascii_lowercase(),
+            other => return Err(anyhow!("unknown search flag {other:?}")),
+        }
+        i += 1;
+    }
+
+    let order_sql = if order == "asc" { "ASC" } else { "DESC" };
+    let order_by = match sort_key.as_str() {
+        "recorded" => format!("r.timestamp {order_sql}"),
+        "map" => format!("r.map_name {order_sql}"),
+        "players" => format!("r.n_players {order_sql}, r.timestamp DESC"),
+        "length" => {
+            // No duration column; fall back to timestamp.
+            // (KW replays' duration lives only in raw_header today.)
+            format!("r.timestamp {order_sql}")
+        }
+        other => return Err(anyhow!("unknown --sort key {other:?}")),
+    };
+
+    // -- build query --
+    let mut where_parts: Vec<String> = Vec::new();
+    let mut binds: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+
+    if let Some(p) = &player {
+        where_parts.push(
+            "EXISTS (SELECT 1 FROM players p WHERE p.replay_id = r.id \
+             AND p.is_observer = 0 AND p.is_commentator = 0 \
+             AND LOWER(p.name) LIKE LOWER(?))".into(),
+        );
+        binds.push(Box::new(format!("%{p}%")));
+    }
+    if let Some(m) = &map {
+        where_parts.push("LOWER(r.map_name) LIKE LOWER(?)".into());
+        binds.push(Box::new(format!("%{m}%")));
+    }
+    if let Some(f) = &faction {
+        where_parts.push(
+            "EXISTS (SELECT 1 FROM players p WHERE p.replay_id = r.id \
+             AND p.actual_faction = ?)".into(),
+        );
+        binds.push(Box::new(f.clone()));
+    }
+    if let Some(n) = mode {
+        // `r.n_players` is the raw slot count *including* observers/
+        // post-commentators. The user-facing mode (1v1, 2v2, …) counts
+        // only real human players, so we compute that on the fly.
+        where_parts.push(
+            "(SELECT COUNT(*) FROM players p WHERE p.replay_id = r.id \
+             AND p.is_observer = 0 AND p.is_commentator = 0) = ?".into(),
+        );
+        binds.push(Box::new(n));
+    }
+    if let Some(y) = year {
+        // year(ts) = ?  → use strftime
+        where_parts.push("CAST(strftime('%Y', r.timestamp, 'unixepoch') AS INTEGER) = ?".into());
+        binds.push(Box::new(y));
+    }
+    if let Some(s) = since {
+        where_parts.push("r.timestamp >= ?".into());
+        binds.push(Box::new(s));
+    }
+    if let Some(u) = until {
+        // Inclusive end-of-day
+        where_parts.push("r.timestamp <= ?".into());
+        binds.push(Box::new(u + 86399));
+    }
+
+    let where_sql = if where_parts.is_empty() {
+        String::new()
+    } else {
+        format!(" WHERE {}", where_parts.join(" AND "))
+    };
+    let sql = format!(
+        "SELECT r.id, r.file_hash, r.file_path, r.map_name, r.n_players, \
+                r.timestamp, r.imported_at \
+         FROM replays r{where_sql} ORDER BY {order_by} LIMIT ?"
+    );
+    binds.push(Box::new(limit));
+
+    let conn = Connection::open(db_path)?;
+    let mut stmt = conn.prepare(&sql)?;
+    let rows: Vec<ReplayRow> = stmt
+        .query_map(
+            params_from_iter(binds.iter().map(|b| &**b as &dyn rusqlite::ToSql)),
+            |row| {
+                Ok(ReplayRow {
+                    id: row.get(0)?,
+                    file_hash: row.get(1)?,
+                    file_path: row.get(2)?,
+                    map_name: row.get(3)?,
+                    n_players: row.get(4)?,
+                    timestamp: row.get(5)?,
+                    imported_at: row.get(6)?,
+                    players: Vec::new(),
+                })
+            },
+        )?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+
+    // Attach players for found replays (same shape as ls --json).
+    let mut rows = rows;
+    if !rows.is_empty() {
+        let ids: Vec<String> = rows.iter().map(|r| r.id.to_string()).collect();
+        let placeholders = vec!["?"; ids.len()].join(",");
+        let pq = format!(
+            "SELECT replay_id, slot, name, clan, chosen_faction, actual_faction, \
+                    team, is_ai, is_observer, is_commentator \
+             FROM players WHERE replay_id IN ({placeholders}) ORDER BY replay_id, slot"
+        );
+        let mut by_id: std::collections::HashMap<i64, Vec<PlayerSummary>> = std::collections::HashMap::new();
+        let mut pstmt = conn.prepare(&pq)?;
+        let prows = pstmt.query_map(
+            params_from_iter(ids.iter().map(|s| s as &dyn rusqlite::ToSql)),
+            |row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    PlayerSummary {
+                        slot: row.get(1)?,
+                        name: row.get(2)?,
+                        clan: row.get(3)?,
+                        chosen_faction: row.get(4)?,
+                        actual_faction: row.get(5)?,
+                        team: row.get(6)?,
+                        is_ai: row.get::<_, i64>(7)? != 0,
+                        is_observer: row.get::<_, i64>(8)? != 0,
+                        is_commentator: row.get::<_, i64>(9)? != 0,
+                    },
+                ))
+            },
+        )?;
+        for r in prows {
+            let (rid, p) = r?;
+            by_id.entry(rid).or_default().push(p);
+        }
+        for r in &mut rows {
+            if let Some(v) = by_id.remove(&r.id) {
+                r.players = v;
+            }
+        }
+    }
+
+    if json {
+        println!("{}", serde_json::to_string_pretty(&rows)?);
+    } else {
+        println!("matched {} replay(s)", rows.len());
+        for r in &rows {
+            let dt = if r.timestamp > 0 {
+                chrono::DateTime::<chrono::Utc>::from_timestamp(r.timestamp, 0)
+                    .map(|d| d.format("%Y-%m-%d").to_string())
+                    .unwrap_or_else(|| "—".into())
+            } else {
+                "—".into()
+            };
+            let humans: Vec<&str> = r.players.iter()
+                .filter(|p| !p.is_observer && !p.is_commentator)
+                .map(|p| p.name.as_str())
+                .collect();
+            println!(
+                "[{:>4}] {} · {}p · {} · {}",
+                r.id,
+                dt,
+                r.n_players,
+                truncate(&r.map_name, 30),
+                truncate(&humans.join(" vs "), 50)
             );
         }
     }
