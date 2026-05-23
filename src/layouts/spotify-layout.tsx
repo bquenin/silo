@@ -1,23 +1,43 @@
 import { useState, useMemo } from 'react';
-import { Library, Tag, Search, Play, Filter, MoreHorizontal, ArrowUpDown, Plus, FolderInput, Loader2 } from 'lucide-react';
+import { Library, Tag, Search, Play, ArrowUpDown, Plus, FolderInput, Loader2, X, ChevronDown, Check } from 'lucide-react';
 import { FactionChip } from '../components/faction-chip';
 import { formatDuration, formatRelative, modeOf } from '../lib/mock-data';
 import { useReplays } from '../lib/use-replays';
+import {
+  applyFilters, applySort, FACTIONS, MODE_OPTIONS, SORT_LABELS,
+  type FilterState, type SortState, type SortKey,
+} from '../lib/filter-sort';
+import { FACTION_LABEL } from '../lib/types';
 import type { Replay } from '../lib/types';
 
 export function SpotifyLayout() {
   const { replays, total, loading, importFolder, live } = useReplays();
   const [query, setQuery] = useState('');
   const [importStatus, setImportStatus] = useState<string | null>(null);
-  const filtered = useMemo(
-    () => replays.filter(
-      (r) =>
-        r.bro_alias?.toLowerCase().includes(query.toLowerCase()) ||
-        r.opponent_name?.toLowerCase().includes(query.toLowerCase()) ||
-        r.map.toLowerCase().includes(query.toLowerCase())
-    ),
-    [query, replays]
-  );
+  const [filter, setFilter] = useState<FilterState>({
+    search: '', mode: { n_players: null }, factions: new Set(),
+  });
+  const [sort, setSort] = useState<SortState>({ key: 'added', dir: 'desc' });
+  const [showSortMenu, setShowSortMenu] = useState(false);
+
+  const filtered = useMemo(() => {
+    const state: FilterState = { ...filter, search: query };
+    return applySort(applyFilters(replays, state), sort);
+  }, [replays, filter, query, sort]);
+
+  const activeFilterCount =
+    (filter.mode.n_players != null ? 1 : 0) + (filter.factions.size > 0 ? 1 : 0);
+
+  function toggleFaction(f: string) {
+    setFilter((prev) => {
+      const next = new Set(prev.factions);
+      if (next.has(f)) next.delete(f); else next.add(f);
+      return { ...prev, factions: next };
+    });
+  }
+  function clearFilters() {
+    setFilter({ search: '', mode: { n_players: null }, factions: new Set() });
+  }
 
   async function handleImport() {
     setImportStatus(null);
@@ -115,19 +135,98 @@ export function SpotifyLayout() {
         </div>
 
         {/* action bar */}
-        <div className="px-6 py-3 flex items-center gap-4">
+        <div className="px-6 py-3 flex items-center gap-4 flex-wrap">
           <button className="w-12 h-12 rounded-full bg-accent hover:bg-accent-dim flex items-center justify-center text-bg shadow-lg">
             <Play size={20} className="ml-0.5" fill="currentColor" />
           </button>
-          <button className="text-fg-muted hover:text-fg p-2">
-            <Filter size={20} />
-          </button>
-          <button className="text-fg-muted hover:text-fg p-2">
-            <MoreHorizontal size={20} />
-          </button>
+
+          {/* Mode pills */}
+          <div className="flex items-center gap-1">
+            {MODE_OPTIONS.map((o) => {
+              const active = filter.mode.n_players === o.n_players;
+              return (
+                <button
+                  key={o.label}
+                  onClick={() => setFilter((p) => ({ ...p, mode: { n_players: o.n_players } }))}
+                  className={`px-3 py-1 rounded-full text-xs transition-colors ${
+                    active
+                      ? 'bg-accent text-bg font-medium'
+                      : 'bg-bg-elevated text-fg-muted hover:text-fg'
+                  }`}
+                >
+                  {o.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Faction chips (multi-select) */}
+          <div className="flex items-center gap-1 flex-wrap">
+            {FACTIONS.map((f) => {
+              const active = filter.factions.has(f);
+              return (
+                <button
+                  key={f}
+                  onClick={() => toggleFaction(f)}
+                  title={FACTION_LABEL[f]}
+                  className={`px-2 py-1 rounded text-[10px] font-medium uppercase tracking-wider border transition-colors ${
+                    active
+                      ? 'bg-accent text-bg border-accent'
+                      : 'border-bg-border text-fg-muted hover:text-fg hover:border-fg-dim'
+                  }`}
+                >
+                  {f}
+                </button>
+              );
+            })}
+          </div>
+
+          {activeFilterCount > 0 && (
+            <button
+              onClick={clearFilters}
+              className="text-xs text-fg-dim hover:text-fg flex items-center gap-1 px-2 py-1 rounded hover:bg-bg-surface"
+              title="Clear filters"
+            >
+              <X size={12} /> Clear
+            </button>
+          )}
+
           <div className="flex-1" />
-          <div className="text-xs text-fg-dim flex items-center gap-1">
-            <ArrowUpDown size={11} /> Date added
+
+          {/* Sort menu */}
+          <div className="relative">
+            <button
+              onClick={() => setShowSortMenu((v) => !v)}
+              className="text-xs text-fg-dim hover:text-fg flex items-center gap-1 px-2 py-1 rounded hover:bg-bg-surface"
+            >
+              <ArrowUpDown size={11} /> {SORT_LABELS[sort.key]}
+              {sort.dir === 'asc' ? ' ↑' : ' ↓'}
+              <ChevronDown size={11} />
+            </button>
+            {showSortMenu && (
+              <div
+                className="absolute right-0 top-full mt-1 z-10 bg-bg-surface border border-bg-border rounded shadow-lg py-1 min-w-[160px]"
+                onMouseLeave={() => setShowSortMenu(false)}
+              >
+                {(Object.keys(SORT_LABELS) as SortKey[]).map((k) => (
+                  <button
+                    key={k}
+                    onClick={() => {
+                      setSort((prev) =>
+                        prev.key === k
+                          ? { key: k, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+                          : { key: k, dir: 'desc' }
+                      );
+                      setShowSortMenu(false);
+                    }}
+                    className="w-full px-3 py-1.5 text-left text-xs text-fg-muted hover:bg-bg-elevated hover:text-fg flex items-center justify-between"
+                  >
+                    <span>{SORT_LABELS[k]}</span>
+                    {sort.key === k && <Check size={12} className="text-accent" />}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
