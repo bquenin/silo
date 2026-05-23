@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cp-client"
+version = "0.1.0"
+description = "Python client for the Command Post API (cgf-uploads.net) used by Kane's Wrath replay tooling"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Bertrand Quenin" }]
+dependencies = [
+    "requests>=2.31",
+    "requests-toolbelt>=1.0",
+]
+
+[project.scripts]
+cp-client = "cp_client.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["cp_client*"]
