@@ -82,18 +82,6 @@ export function SpotifyLayout() {
         <div className="flex-1 overflow-y-auto px-2">
           <PlaylistItem label="All Replays" subtitle={`Library · ${total} items`} emoji="📚" active />
         </div>
-
-        <div className="mt-auto p-3 text-xs text-fg-dim border-t border-bg-border">
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded bg-accent text-bg flex items-center justify-center text-xs font-bold">
-              T
-            </div>
-            <div className="flex-1">
-              <div className="text-fg">tsug303</div>
-              <div className="text-fg-dim">Connected</div>
-            </div>
-          </div>
-        </div>
       </aside>
 
       {/* main */}
