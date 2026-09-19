@@ -10,8 +10,11 @@ you search, filter, and re-watch them via the live engine.
 
 ## Status
 
-**Pre-alpha.** UI prototype works against mock data; the binary
-parser, SQLite-backed catalogue, and playback integration land next.
+**Pre-alpha.** The desktop app imports replays into a SQLite catalogue,
+parses players/factions, and can launch a replay after checking its exact
+map revision against an installed game configuration. Browser previews use
+mock data. See [replay launcher](docs/replay-launcher.md) for setup,
+compatibility limits, and CLI commands.
 
 ## Why exist
 
@@ -29,9 +32,9 @@ with structured JSON output.
   hash carries a faction prefix)
 - **Search/filter** by player, faction (including resolved Random),
   map, opponent, year, duration, tag
-- **Map-pack awareness** — each replay's required map → required map
-  pack → which packs are installed locally → "needs R23z, not installed"
-- **Playback** — launch replays in the game
+- **Map-pack awareness** — check the exact revision against enabled archives;
+  distinguish missing maps from installed but disabled packs
+- **Playback** — launch replays through a selected game configuration
 - **CLI** with `--json` output for importing and searching replays
 
 ## Stack
@@ -58,6 +61,20 @@ For frontend-only iteration (no Rust rebuild loop):
 ```sh
 npm run dev            # Vite at localhost:1420 — preview only
 ```
+
+Run the regression checks:
+
+```sh
+npm test
+npm run build
+cargo test --manifest-path src-tauri/Cargo.toml --all-targets
+```
+
+The Command Post client also has offline download tests. With its Python
+dependencies installed, run `python -m unittest discover -s tools/cp-client/tests -v`.
+
+Reimport existing replay folders to refresh resolved factions, duration, and
+absolute file paths. Reimports preserve catalogue IDs and import order.
 
 ## License
 

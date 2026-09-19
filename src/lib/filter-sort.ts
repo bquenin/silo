@@ -1,16 +1,12 @@
 import type { Replay } from './types';
+import { modeOf } from './replays';
 
 export type SortKey = 'recorded' | 'map' | 'players' | 'length';
 export type SortDir = 'asc' | 'desc';
 
-export interface ModeFilter {
-  /** null = "All", otherwise the exact n_players to match. */
-  n_players: number | null;
-}
-
 export interface FilterState {
   search: string;
-  mode: ModeFilter;
+  mode: string | null;
   /** Empty = no faction filter. Otherwise show only replays where *any*
    *  player's actual_faction is in this set. */
   factions: Set<string>;
@@ -28,12 +24,13 @@ export const SORT_LABELS: Record<SortKey, string> = {
   length: 'Length',
 };
 
-export const MODE_OPTIONS: { label: string; n_players: number | null }[] = [
-  { label: 'All', n_players: null },
-  { label: '1v1', n_players: 2 },
-  { label: '2v2', n_players: 4 },
-  { label: '3v3', n_players: 6 },
-  { label: '4v4', n_players: 8 },
+export const MODE_OPTIONS: { label: string; value: string | null }[] = [
+  { label: 'All', value: null },
+  { label: '1v1', value: '1v1' },
+  { label: '2v2', value: '2v2' },
+  { label: '3v3', value: '3v3' },
+  { label: '4v4', value: '4v4' },
+  { label: 'FFA', value: 'FFA' },
 ];
 
 export const FACTIONS: string[] = ['GDI','Nod','Sc','BH','MoK','ST','ZCM','R17','T59'];
@@ -41,7 +38,7 @@ export const FACTIONS: string[] = ['GDI','Nod','Sc','BH','MoK','ST','ZCM','R17',
 export function applyFilters(replays: Replay[], state: FilterState): Replay[] {
   const q = state.search.trim().toLowerCase();
   return replays.filter((r) => {
-    if (state.mode.n_players != null && r.n_players !== state.mode.n_players) return false;
+    if (state.mode != null && modeOf(r) !== state.mode) return false;
     if (state.factions.size > 0) {
       const hit = r.players.some((p) => state.factions.has(String(p.actual)));
       if (!hit) return false;

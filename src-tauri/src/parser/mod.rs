@@ -32,14 +32,17 @@ mod types;
 pub use error::{ParseError, Result};
 pub use types::{Faction, Player, Replay};
 
+/// Kane's Wrath's simulation/replay clock, independent of rendering FPS.
+pub const TICKS_PER_SECOND: u32 = 15;
+
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
 
 /// Parse the metadata header only — fast (single linear scan, no chunk walk).
 pub fn parse_metadata(path: impl AsRef<Path>) -> Result<Replay> {
-    let path = path.as_ref();
-    let f = File::open(path).map_err(ParseError::Io)?;
+    let path = dunce::canonicalize(path.as_ref()).map_err(ParseError::Io)?;
+    let f = File::open(&path).map_err(ParseError::Io)?;
     let mut r = BufReader::new(f);
     let mut replay = header::read_header(&mut r)?;
     replay.file_path = Some(path.to_path_buf());
@@ -50,14 +53,13 @@ pub fn parse_metadata(path: impl AsRef<Path>) -> Result<Replay> {
 /// Random-faction players' actual assignment from their first build command.
 /// Also records the replay's total simulation-tick count as
 /// `duration_frames` (max `time_code` seen during the walk). Convert to
-/// wall-clock seconds via `frames / 30` (KW's logical tick rate at
-/// game-speed 100).
+/// simulation seconds via `frames / TICKS_PER_SECOND` (15 ticks per second).
 ///
 /// More expensive than `parse_metadata` (reads ~the full file once) but
 /// produces complete data — use this for ingest.
 pub fn parse_full(path: impl AsRef<Path>) -> Result<Replay> {
-    let path = path.as_ref();
-    let f = File::open(path).map_err(ParseError::Io)?;
+    let path = dunce::canonicalize(path.as_ref()).map_err(ParseError::Io)?;
+    let f = File::open(&path).map_err(ParseError::Io)?;
     let mut buf = BufReader::new(f);
     let mut r = reader::R::new(&mut buf);
     let mut replay = header::read_header_into(&mut r)?;

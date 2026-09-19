@@ -3349,6 +3349,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "chrono",
+ "dunce",
  "hex",
  "rusqlite",
  "serde",
@@ -3360,6 +3361,7 @@ dependencies = [
  "tauri-plugin-opener",
  "thiserror 2.0.18",
  "walkdir",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

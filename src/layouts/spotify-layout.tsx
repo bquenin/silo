@@ -1,7 +1,9 @@
 import { useState, useMemo } from 'react';
 import { Library, Tag, Search, Play, ArrowUpDown, Plus, FolderInput, Loader2, X, ChevronDown, Check } from 'lucide-react';
 import { FactionChip } from '../components/faction-chip';
-import { formatDate, formatDuration, modeOf } from '../lib/mock-data';
+import { PlaybackDialog } from '../components/playback-dialog';
+import { formatDate } from '../lib/mock-data';
+import { formatDuration, modeOf } from '../lib/replays';
 import { useReplays } from '../lib/use-replays';
 import {
   applyFilters, applySort, FACTIONS, MODE_OPTIONS, SORT_LABELS,
@@ -16,14 +18,15 @@ const GRID_TEMPLATE =
   'grid-cols-[28px_minmax(0,2.2fr)_minmax(0,1.3fr)_minmax(220px,1fr)_90px_70px]';
 
 export function SpotifyLayout() {
-  const { replays, total, loading, importFolder, live } = useReplays();
+  const { replays, total, loading, error, importFolder, refresh, live } = useReplays();
   const [query, setQuery] = useState('');
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterState>({
-    search: '', mode: { n_players: null }, factions: new Set(),
+    search: '', mode: null, factions: new Set(),
   });
   const [sort, setSort] = useState<SortState>({ key: 'recorded', dir: 'desc' });
   const [showSortMenu, setShowSortMenu] = useState(false);
+  const [playbackReplay, setPlaybackReplay] = useState<Replay | null>(null);
 
   const filtered = useMemo(() => {
     const state: FilterState = { ...filter, search: query };
@@ -31,7 +34,7 @@ export function SpotifyLayout() {
   }, [replays, filter, query, sort]);
 
   const activeFilterCount =
-    (filter.mode.n_players != null ? 1 : 0) + (filter.factions.size > 0 ? 1 : 0);
+    (filter.mode != null ? 1 : 0) + (filter.factions.size > 0 ? 1 : 0);
 
   function toggleFaction(f: string) {
     setFilter((prev) => {
@@ -41,7 +44,7 @@ export function SpotifyLayout() {
     });
   }
   function clearFilters() {
-    setFilter({ search: '', mode: { n_players: null }, factions: new Set() });
+    setFilter({ search: '', mode: null, factions: new Set() });
   }
 
   async function handleImport() {
@@ -50,8 +53,8 @@ export function SpotifyLayout() {
     if (!report) return;
     setImportStatus(
       `Imported ${report.inserted} new (${report.duplicates} dupes, ${report.errors.length} errors)`
+        + report.errors.slice(0, 3).map((e) => `\n${e.path}: ${e.message}`).join('')
     );
-    setTimeout(() => setImportStatus(null), 5000);
   }
 
   return (
@@ -74,7 +77,7 @@ export function SpotifyLayout() {
             <Library size={15} /> <span className="flex-1 text-left">Library</span>
             <span className="text-xs text-fg-dim font-mono">{total}</span>
           </button>
-          {live && total === 0 && (
+          {live && !error && !loading && total === 0 && (
             <button
               onClick={handleImport}
               className="mt-2 w-full flex items-center gap-2 px-2 py-2 rounded border border-bg-border text-sm text-fg-muted hover:text-fg hover:border-accent-dim transition-colors"
@@ -83,7 +86,7 @@ export function SpotifyLayout() {
             </button>
           )}
           {importStatus && (
-            <div className="mt-2 text-xs text-accent-dim px-1">{importStatus}</div>
+            <div role="status" className="mt-2 text-xs text-accent-dim px-1 whitespace-pre-wrap break-words">{importStatus}</div>
           )}
         </div>
 
@@ -141,18 +144,22 @@ export function SpotifyLayout() {
 
         {/* action bar */}
         <div className="px-6 py-3 flex items-center gap-4 flex-wrap">
-          <button className="w-12 h-12 rounded-full bg-accent hover:bg-accent-dim flex items-center justify-center text-bg shadow-lg">
+          <button onClick={() => filtered[0] && setPlaybackReplay(filtered[0])}
+            disabled={!live || filtered.length === 0}
+            title={live ? 'Check map compatibility and play the first replay' : 'Playback is available in the desktop app'}
+            aria-label="Play first replay"
+            className="w-12 h-12 rounded-full bg-accent hover:bg-accent-dim flex items-center justify-center text-bg shadow-lg disabled:opacity-40">
             <Play size={20} className="ml-0.5" fill="currentColor" />
           </button>
 
           {/* Mode pills */}
           <div className="flex items-center gap-1">
             {MODE_OPTIONS.map((o) => {
-              const active = filter.mode.n_players === o.n_players;
+              const active = filter.mode === o.value;
               return (
                 <button
                   key={o.label}
-                  onClick={() => setFilter((p) => ({ ...p, mode: { n_players: o.n_players } }))}
+                  onClick={() => setFilter((p) => ({ ...p, mode: o.value }))}
                   className={`px-3 py-1 rounded-full text-xs transition-colors ${
                     active
                       ? 'bg-accent text-bg font-medium'
@@ -235,6 +242,14 @@ export function SpotifyLayout() {
           </div>
         </div>
 
+        {error && (
+          <div role="alert" className="mx-6 mb-3 rounded border border-red-400/30 p-3 text-sm text-red-300">
+            <p>{error}</p>
+            <button onClick={() => void refresh()} disabled={loading}
+              className="mt-2 underline disabled:opacity-40">Retry loading catalogue</button>
+          </div>
+        )}
+
         {/* table */}
         <div className="flex-1 overflow-y-auto px-6 pb-6">
           <div className={`grid ${GRID_TEMPLATE} gap-4 px-3 py-2 text-[10px] uppercase tracking-wider text-fg-dim border-b border-bg-border`}>
@@ -246,11 +261,11 @@ export function SpotifyLayout() {
             <span className="text-right">Length</span>
           </div>
           {filtered.map((r, i) => (
-            <Row key={r.id} replay={r} index={i + 1} />
+            <Row key={r.id} replay={r} index={i + 1} live={live} onPlay={() => setPlaybackReplay(r)} />
           ))}
-          {!loading && filtered.length === 0 && (
+          {!loading && !error && filtered.length === 0 && (
             <div className="text-center text-fg-muted py-12">
-              {live ? (
+              {live && replays.length === 0 ? (
                 <>
                   <p className="mb-3">No replays in the catalogue yet.</p>
                   <button
@@ -270,6 +285,7 @@ export function SpotifyLayout() {
           </div>
         </div>
       </main>
+      {playbackReplay && <PlaybackDialog key={playbackReplay.id} replay={playbackReplay} onClose={() => setPlaybackReplay(null)} />}
     </div>
   );
 }
@@ -301,7 +317,7 @@ function PlaylistItem({
   );
 }
 
-function Row({ replay, index }: { replay: Replay; index: number }) {
+function Row({ replay, index, live, onPlay }: { replay: Replay; index: number; live: boolean; onPlay: () => void }) {
   const map = replay.map.replace(/^\[[^\]]+\]\s*/, '').replace(/\s+\d+\.\d+\+.*$/, '');
   const teams = replay.teams ?? [];
   const isOneV = teams.length === 2 && teams[0]?.length === 1 && teams[1]?.length === 1;
@@ -314,10 +330,12 @@ function Row({ replay, index }: { replay: Replay; index: number }) {
 
   return (
     <div className={`group grid ${GRID_TEMPLATE} gap-4 px-3 py-2 rounded items-center hover:bg-bg-surface cursor-pointer transition-colors`}>
-      <span className="text-sm text-fg-dim font-mono group-hover:hidden">{index}</span>
-      <span className="hidden group-hover:flex text-accent-dim items-center">
-        <Play size={12} fill="currentColor" />
-      </span>
+      <button onClick={onPlay} disabled={!live} aria-label={`Play ${replay.file}`}
+        title={live ? 'Check map compatibility and play' : 'Playback is available in the desktop app'}
+        className="text-accent-dim flex items-center justify-center w-7 h-7 rounded hover:bg-bg-elevated disabled:opacity-40 focus-visible:outline focus-visible:outline-accent">
+        <span className="text-sm text-fg-dim font-mono group-hover:hidden group-focus-within:hidden">{index}</span>
+        <Play size={12} fill="currentColor" className="hidden group-hover:block group-focus-within:block" />
+      </button>
 
       <div className="min-w-0 flex items-center gap-3">
         <div
@@ -342,11 +360,11 @@ function Row({ replay, index }: { replay: Replay; index: number }) {
               </>
             )}
             {isFfa && (
-              <span>{teams.map((t) => t[0]?.name).filter(Boolean).join(' · ')}</span>
+              <span>{teams.map((team) => team.map((p) => p.name).join(' · ')).join(' vs ')}</span>
             )}
           </div>
           <div className="text-xs text-fg-dim truncate">
-            {modeOf(replay.n_players)} · {replay.n_players} players
+            {modeOf(replay)} · {replay.n_players} players
           </div>
         </div>
       </div>
@@ -379,7 +397,10 @@ function Row({ replay, index }: { replay: Replay; index: number }) {
         {isFfa && (
           <div className="flex items-center gap-0.5 flex-wrap">
             {teams.map((t, i) => (
-              <FactionChip key={i} faction={t[0]?.actual ?? 'Rnd'} chosen={t[0]?.chosen} size="sm" showLabel={false} />
+              <div key={i} className="flex items-center gap-0.5 flex-wrap">
+                {i > 0 && <span className="text-xs text-fg-dim mx-1">vs</span>}
+                {t.map((p) => <FactionChip key={p.slot} faction={p.actual} chosen={p.chosen} size="sm" showLabel={false} />)}
+              </div>
             ))}
           </div>
         )}

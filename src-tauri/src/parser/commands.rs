@@ -1,185 +1,191 @@
-//! Walk the chunk stream that follows the header and decode just enough
-//! commands to recover each player's actual faction when they picked Random.
-//!
-//! Binary layout (KW):
-//!
-//!   chunk:
-//!     time_code:  u32  (0x7FFFFFFF terminates the body)
-//!     ty:         u8
-//!     size:       u32
-//!     data:       [size bytes]
-//!     unknown:    u32
-//!
-//! When `ty == 1`, `data` is:
-//!     one:    u8 (== 1)
-//!     ncmd:   u32
-//!     payload: split into `ncmd` commands separated by 0xFF.
-//!
-//! Each command in the payload is:
-//!     cmd_id:    u8
-//!     pid_byte:  u8 → player_id = (pid_byte / 8) - 3
-//!     content:   bytes up to and including the next 0xFF
-//!
-//! Of interest:
-//!   * `cmd_id == 0x2D` (queue / resume production) — content[8..12] LE u32 is
-//!     the unit template hash.
-//!   * `cmd_id == 0x31` (placedown) — content[6..10] LE u32 is the building
-//!     template hash.
+//! Read KW's typed command batches. Only a 0xFF at an argument-tag position
+//! terminates a command; scalar values and coordinates may contain any byte.
+//! The native serializer stores an 11-bit message type and 5-bit player index
+//! in a little-endian word, followed by runs of typed arguments.
 
 use std::io::Read;
 
-use super::error::Result;
+use super::error::{ParseError, Result};
 use super::reader::R;
 
-const CMD_QUEUE: u8 = 0x2D;
-const CMD_PLACEDOWN: u8 = 0x31;
+const CMD_QUEUE: u16 = 0x22D;
+const CMD_PLACEDOWN: u16 = 0x231;
 const END_MARKER: u32 = 0x7FFF_FFFF;
+const MAX_CHUNK_BYTES: usize = 16 * 1024 * 1024;
+const MAX_COMMANDS: usize = 65_536;
 
-#[derive(Debug, Clone)]
-pub struct Command {
-    pub cmd_id: u8,
+#[derive(Debug)]
+pub struct Command<'a> {
+    pub message_type: u16,
     pub player_id: i32,
-    pub time_code: u32,
-    pub payload: Vec<u8>,
+    pub payload: &'a [u8],
 }
 
-impl Command {
-    /// For QUEUE (0x2D) commands, the unit template hash is at content[8..12].
+impl Command<'_> {
     pub fn queue_template_hash(&self) -> Option<u32> {
-        if self.cmd_id == CMD_QUEUE && self.payload.len() >= 12 {
-            Some(u32::from_le_bytes([
-                self.payload[8],
-                self.payload[9],
-                self.payload[10],
-                self.payload[11],
-            ]))
-        } else {
-            None
-        }
+        (self.message_type == CMD_QUEUE)
+            .then(|| self.payload.get(8..12))
+            .flatten()
+            .map(|bytes| u32::from_le_bytes(bytes.try_into().unwrap()))
     }
 
-    /// For PLACEDOWN (0x31) commands, the building template hash is at content[6..10].
     pub fn placedown_template_hash(&self) -> Option<u32> {
-        if self.cmd_id == CMD_PLACEDOWN && self.payload.len() >= 10 {
-            Some(u32::from_le_bytes([
-                self.payload[6],
-                self.payload[7],
-                self.payload[8],
-                self.payload[9],
-            ]))
-        } else {
-            None
-        }
+        (self.message_type == CMD_PLACEDOWN)
+            .then(|| self.payload.get(6..10))
+            .flatten()
+            .map(|bytes| u32::from_le_bytes(bytes.try_into().unwrap()))
     }
 }
 
-/// Walk the chunk stream. `for_each_cmd` is invoked for every decoded command
-/// of interest (we only emit cmd_ids the caller cares about — passing an empty
-/// filter emits everything). Returns the highest non-sentinel `time_code` seen
-/// across the whole body, which equals the game's total simulation-tick count
-/// (the engine writes one chunk per sim tick; KW's logical tick rate is 30 Hz
-/// at game-speed 100, so wall-clock seconds = max_time_code / 30).
+/// Returns the highest completed chunk's simulation tick (15 ticks/second).
+/// Faction recovery is best effort: unsupported argument types invalidate the
+/// entire batch, never trigger a scan for guessed command boundaries.
 pub fn walk_commands<T: Read, F>(
     r: &mut R<'_, T>,
-    cmd_filter: &[u8],
-    mut for_each_cmd: F,
+    command_filter: &[u16],
+    mut for_each_command: F,
 ) -> Result<u32>
 where
-    F: FnMut(Command),
+    F: FnMut(Command<'_>),
 {
-    let mut max_tc: u32 = 0;
+    let mut max_tick = 0;
     loop {
-        let time_code = match r.read_u32_le() {
-            Ok(v) => v,
-            // Cleanly stop at EOF — the body has ended without an explicit marker.
-            Err(_) => break,
+        let tick = match r.read_u32_le() {
+            Ok(tick) => tick,
+            Err(ParseError::Eof { .. }) => break,
+            Err(error) => return Err(error),
         };
-        if time_code == END_MARKER {
+        if tick == END_MARKER {
             break;
         }
-        if time_code > max_tc {
-            max_tc = time_code;
+        let kind = r.read_u8()?;
+        let size = r.read_u32_le()? as usize;
+        if size > MAX_CHUNK_BYTES {
+            return Err(ParseError::LimitExceeded {
+                field: "chunk",
+                length: size,
+                limit: MAX_CHUNK_BYTES,
+            });
         }
-
-        let ty = r.read_u8()?;
-        let size = r.read_u32_le()?;
-        let mut data = vec![0u8; size as usize];
-        r.read_exact(&mut data)?;
-        let _unknown = r.read_u32_le()?;
-
-        if ty != 1 {
-            continue;
-        }
-        if data.is_empty() {
-            continue;
-        }
-        // data[0] is the leading 0x01 sentinel; bail if it's something else.
-        if data[0] != 1 {
-            continue;
-        }
-        if data.last() != Some(&0xFF) {
-            // Some chunks have a weird tail — Python parser also skips these.
-            continue;
-        }
-        // Next 4 bytes are ncmd. Then payload begins.
-        if data.len() < 5 {
-            continue;
-        }
-        let ncmd = u32::from_le_bytes([data[1], data[2], data[3], data[4]]);
-        let payload = &data[5..];
-
-        split_commands(payload, ncmd, time_code, cmd_filter, &mut for_each_cmd);
-    }
-    Ok(max_tc)
-}
-
-/// Walk the bytes between command boundaries.
-///
-/// FSM mirroring the Python `Chunk.split_commands` exactly:
-///   - mode CMD_ID:   1 byte → cmd_id
-///   - mode PID:      1 byte → player_id = (byte / 8) - 3 (KW/CNC3)
-///   - mode CONTENT:  collect bytes until 0xFF (inclusive)
-fn split_commands<F: FnMut(Command)>(
-    payload: &[u8],
-    ncmd: u32,
-    time_code: u32,
-    filter: &[u8],
-    mut for_each: F,
-) {
-    #[derive(Copy, Clone, PartialEq)]
-    enum Mode { Cmd, Pid, Content }
-    let mut mode = Mode::Cmd;
-    let mut current = Command { cmd_id: 0, player_id: 0, time_code, payload: Vec::new() };
-    let mut start = 0usize;
-    let mut emitted = 0u32;
-
-    for (i, &byte) in payload.iter().enumerate() {
-        match mode {
-            Mode::Cmd => {
-                current = Command { cmd_id: byte, player_id: 0, time_code, payload: Vec::new() };
-                mode = Mode::Pid;
-            }
-            Mode::Pid => {
-                current.player_id = (byte as i32 / 8) - 3;
-                start = i + 1;
-                mode = Mode::Content;
-            }
-            Mode::Content => {
-                if byte == 0xFF {
-                    let end = i + 1;
-                    current.payload = payload[start..end].to_vec();
-                    if filter.is_empty() || filter.contains(&current.cmd_id) {
-                        for_each(current.clone());
-                    }
-                    emitted += 1;
-                    if ncmd != 1 {
-                        mode = Mode::Cmd;
-                    }
+        if kind == 1 {
+            let mut data = vec![0; size];
+            r.read_exact(&mut data)?;
+            r.read_u32_le()?; // chunk trailer
+                              // Validate the entire batch before exposing faction evidence.
+            if let Ok(commands) = split_commands(&data, command_filter) {
+                for command in commands {
+                    for_each_command(command);
                 }
             }
+        } else {
+            r.skip(size)?;
+            r.read_u32_le()?;
         }
-        if emitted >= ncmd && mode == Mode::Cmd {
-            break;
+        max_tick = max_tick.max(tick);
+    }
+    Ok(max_tick)
+}
+
+fn split_commands<'a>(data: &'a [u8], filter: &[u16]) -> Result<Vec<Command<'a>>> {
+    let malformed = || ParseError::BadBody("Malformed command batch".into());
+    if data.len() < 5 || data[0] != 1 {
+        return Err(malformed());
+    }
+    let count = u32::from_le_bytes(data[1..5].try_into().unwrap()) as usize;
+    if count > MAX_COMMANDS || count > (data.len() - 5) / 3 {
+        return Err(malformed());
+    }
+    let mut offset = 5;
+    let mut commands = Vec::new();
+    for _ in 0..count {
+        let header = data.get(offset..offset + 2).ok_or_else(malformed)?;
+        let header = u16::from_le_bytes(header.try_into().unwrap());
+        offset += 2;
+        let start = offset;
+        loop {
+            let tag = *data.get(offset).ok_or_else(malformed)?;
+            offset += 1;
+            if tag == 0xFF {
+                break;
+            }
+            // Native argument serializers: INT, REAL, BOOL, OID, UINT32,
+            // LOCATION and UINT16. Other types are not guessed.
+            let width = match tag & 0x0F {
+                0 | 1 | 3 | 5 | 9 => 4,
+                2 => 1,
+                6 => 12,
+                10 => 2,
+                other => {
+                    return Err(ParseError::BadBody(format!(
+                        "Unsupported argument tag {other}"
+                    )))
+                }
+            };
+            offset += (usize::from(tag >> 4) + 1) * width;
+            if offset > data.len() {
+                return Err(malformed());
+            }
         }
+        let message_type = header & 0x7FF;
+        if filter.is_empty() || filter.contains(&message_type) {
+            commands.push(Command {
+                message_type,
+                player_id: i32::from(header >> 11) - 3,
+                payload: &data[start..offset],
+            });
+        }
+    }
+    if offset != data.len() {
+        return Err(malformed());
+    }
+    Ok(commands)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn batch(commands: &[Vec<u8>]) -> Vec<u8> {
+        let mut data = vec![1];
+        data.extend_from_slice(&(commands.len() as u32).to_le_bytes());
+        data.extend(commands.iter().flatten());
+        data
+    }
+
+    #[test]
+    fn embedded_separator_in_any_coordinate_preserves_the_following_queue() {
+        for index in 0..12 {
+            let mut location = vec![0x47, 0x1A, 6];
+            location.extend([0; 12]);
+            location[3 + index] = 0xFF;
+            location.push(0xFF);
+            let queue = vec![
+                0x2D, 0x1A, 0, 1, 0, 0, 0, 2, 0, 3, 0x8D, 0x53, 0x26, 0, 0xFF,
+            ];
+            let data = batch(&[location, queue]);
+            let commands = split_commands(&data, &[CMD_QUEUE]).unwrap();
+            assert_eq!(commands.len(), 1);
+            assert_eq!(commands[0].player_id, 0);
+            assert_eq!(commands[0].queue_template_hash(), Some(0x0026538D));
+        }
+    }
+
+    #[test]
+    fn truncated_unknown_or_miscounted_batches_supply_no_commands() {
+        for command in [vec![0x47, 0x1A, 6, 0xFF], vec![0x47, 0x1A, 0x0E, 0xFF]] {
+            assert!(split_commands(&batch(&[command]), &[]).is_err());
+        }
+        let mut data = batch(&[vec![0x4C, 0x1A, 0xFF]]);
+        data[1] = 2;
+        assert!(split_commands(&data, &[]).is_err());
+        data[1] = 1;
+        data.push(0);
+        assert!(split_commands(&data, &[]).is_err());
+    }
+
+    #[test]
+    fn full_message_type_prevents_low_byte_aliases() {
+        let data = batch(&[vec![0x2D, 0x1B, 0xFF]]);
+        assert!(split_commands(&data, &[CMD_QUEUE]).unwrap().is_empty());
     }
 }

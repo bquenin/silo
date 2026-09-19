@@ -31,13 +31,6 @@ for (let i = 0; i < 10; i++) {
 
 export const TOTAL_REPLAYS = REPLAYS.length;
 
-export function formatDuration(s?: number) {
-  if (!s) return '--:--';
-  const m = Math.floor(s / 60);
-  const sec = s % 60;
-  return `${m}:${String(sec).padStart(2, '0')}`;
-}
-
 export function formatRelative(iso?: string) {
   if (!iso) return '';
   const then = new Date(iso).getTime();
@@ -54,15 +47,4 @@ export function formatDate(iso?: string) {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return '—';
   return d.toISOString().slice(0, 10); // YYYY-MM-DD
-}
-
-export function modeOf(n_players: number): string {
-  switch (n_players) {
-    case 2: return '1v1';
-    case 4: return '2v2';
-    case 6: return '3v3';
-    case 8: return '4v4';
-    case 3: return 'FFA';
-    default: return `${n_players}p`;
-  }
 }

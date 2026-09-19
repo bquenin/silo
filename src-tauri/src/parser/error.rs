@@ -17,6 +17,16 @@ pub enum ParseError {
     #[error("header parse error: {0}")]
     BadHeader(String),
 
+    #[error("replay {field} length {length} exceeds limit {limit}")]
+    LimitExceeded {
+        field: &'static str,
+        length: usize,
+        limit: usize,
+    },
+
+    #[error("command stream error: {0}")]
+    BadBody(String),
+
     #[error("unsupported game: {0}")]
     UnsupportedGame(String),
 }

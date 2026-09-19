@@ -4,7 +4,7 @@ use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use walkdir::WalkDir;
@@ -27,15 +27,26 @@ pub struct IngestError {
 }
 
 pub fn ingest_path(db: &mut Db, path: &Path) -> Result<IngestReport> {
+    let path = dunce::canonicalize(path)
+        .with_context(|| format!("Cannot read import path {}", path.display()))?;
     let mut report = IngestReport::default();
     if path.is_file() {
-        ingest_one(db, path, &mut report);
+        ingest_one(db, &path, &mut report);
     } else {
-        for entry in WalkDir::new(path) {
+        for entry in WalkDir::new(&path) {
             let entry = match entry {
                 Ok(e) => e,
-                Err(_) => continue,
+                Err(error) => {
+                    report.errors.push(IngestError {
+                        path: error.path().unwrap_or(&path).to_string_lossy().into_owned(),
+                        message: format!("read directory: {error}"),
+                    });
+                    continue;
+                }
             };
+            if !entry.file_type().is_file() {
+                continue;
+            }
             let ext_ok = entry
                 .path()
                 .extension()
@@ -83,7 +94,7 @@ fn ingest_one(db: &mut Db, path: &Path, report: &mut IngestReport) {
     }
 }
 
-fn hash_file(path: &Path) -> std::io::Result<(String, u64)> {
+pub(crate) fn hash_file(path: &Path) -> std::io::Result<(String, u64)> {
     let f = File::open(path)?;
     let size = f.metadata()?.len();
     let mut r = BufReader::new(f);

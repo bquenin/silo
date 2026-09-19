@@ -166,7 +166,7 @@ fn decode_player(raw: &str, slot: u32) -> Result<Option<Player>> {
             p.actual_faction = p.chosen_faction;
         }
         if parts.len() >= 8 {
-            p.team = parts[7].parse::<i32>().unwrap_or(-1) + 1;
+            p.team = decode_team(parts[7])?;
         }
         if parts.len() >= 9 {
             p.handicap = parts[8].parse().unwrap_or(0);
@@ -183,7 +183,7 @@ fn decode_player(raw: &str, slot: u32) -> Result<Option<Player>> {
             p.actual_faction = p.chosen_faction;
         }
         if parts.len() >= 5 {
-            p.team = parts[4].parse::<i32>().unwrap_or(-1) + 1;
+            p.team = decode_team(parts[4])?;
         }
         if parts.len() >= 6 {
             p.handicap = parts[5].parse().unwrap_or(0);
@@ -202,4 +202,15 @@ fn decode_player(raw: &str, slot: u32) -> Result<Option<Player>> {
         || p.name.to_lowercase().contains("post commentator");
 
     Ok(Some(p))
+}
+
+fn decode_team(raw: &str) -> Result<i32> {
+    let team = raw
+        .parse::<i32>()
+        .map_err(|_| ParseError::BadHeader(format!("Invalid team {raw:?}")))?;
+    // KW has at most eight player slots. -1 is an unteamed player.
+    if !(-1..=7).contains(&team) {
+        return Err(ParseError::BadHeader(format!("Invalid team {raw:?}")));
+    }
+    Ok(team + 1)
 }

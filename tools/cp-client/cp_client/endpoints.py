@@ -128,7 +128,9 @@ class CommandPostAPI(CommandPostClient):
         Use :meth:`download_replay` for the convenience download.
         """
         fields: dict[str, Any] = {"type": 4, "replay_id": replay_id, **extra}
-        env = self.call("fetch_replays", fields=fields)
+        # This wrapper promises a record, not an Envelope. A checksum-only
+        # response cannot satisfy that promise without a cached record.
+        env = self.call("fetch_replays", fields=fields, use_cached_checksum=False)
         out = env.output
         if isinstance(out, list) and out:
             return out[0]
@@ -174,9 +176,13 @@ class CommandPostAPI(CommandPostClient):
         # is a URL fragment separator and ``requests`` will silently drop
         # everything after it unless we percent-encode the path first.
         # We only re-encode the path/filename — scheme + host stay as-is.
+        import re
         from urllib.parse import quote, urlsplit, urlunsplit
-        parts = urlsplit(url)
-        encoded_path = quote(parts.path, safe="/")
+        parts = urlsplit(url, allow_fragments=False)
+        # Keep existing escapes (including encoded slashes) intact and encode
+        # bare percent signs before quoting raw filename characters.
+        path = re.sub(r"%(?![0-9a-fA-F]{2})", "%25", parts.path)
+        encoded_path = quote(path, safe="/%")
         safe_url = urlunsplit(
             (parts.scheme, parts.netloc, encoded_path, parts.query, "")
         )

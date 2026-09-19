@@ -109,7 +109,7 @@ pub struct Replay {
     /// Total simulation ticks in the body's command stream — the highest
     /// `time_code` we observed. `None` if the metadata-only parse path
     /// was used (header.rs doesn't walk the body). Convert to wall-clock
-    /// seconds via `frames / 30` (KW's logical tick rate at game-speed 100).
+    /// seconds via `frames / TICKS_PER_SECOND` (15 ticks per second).
     /// `Some(0)` means the body was truncated / unwalkable.
     #[serde(default)]
     pub duration_frames: Option<u32>,
