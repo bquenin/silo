@@ -88,8 +88,8 @@ maps stored under unrelated names:
 | --- | ---: | --- | ---: |
 | [KanesWrath.com mega pack](https://kaneswrath.com/download/mega-mappack/) | 2,309 | `2b349bb410ffae12f7dda1aaeebc8ef79ddc7418f409472adcf23a6a36d38fd6` | 0 |
 | [ItzTeeJaay's 2020 collection](https://www.moddb.com/games/cc-kanes-wrath/addons/itzteejaays-kanes-wrath-map-collection) | 305 | `1d3885c1693cba4f752c727adbd128c495bd7f7d41107a6d1c7628cbee8f34a8` | 0 |
-| [MaD_Animal KW pack Aâ€“L](https://madnetwork.direct.quickconnect.to:5001/sharing/wKvFDDIFR) | 477 | `8d2a79d67b90cb3176be2f81cca7064e17963a94bdcd0186a37c5fd833b8e4ca` | 0 |
-| [MaD_Animal KW pack Mâ€“Z](https://madnetwork.direct.quickconnect.to:5001/sharing/sPbgOrdoH) | 520 | `3577c7f03c200c39c960d823ca1ca1cd210e3193ff07ddb67889807d495c5459` | 0 |
+| [MaD_Animal KW pack A–L](https://madnetwork.direct.quickconnect.to:5001/sharing/wKvFDDIFR) | 477 | `8d2a79d67b90cb3176be2f81cca7064e17963a94bdcd0186a37c5fd833b8e4ca` | 0 |
+| [MaD_Animal KW pack M–Z](https://madnetwork.direct.quickconnect.to:5001/sharing/sPbgOrdoH) | 520 | `3577c7f03c200c39c960d823ca1ca1cd210e3193ff07ddb67889807d495c5459` | 0 |
 | [MaD_Animal edited maps](https://madnetwork.direct.quickconnect.to:5001/sharing/yVqRoD5O7) | 49 | `d72632c0d734adccac0a6771aa2ca93de14a60039adaee29885dc24b56b8811d` | 0 |
 | [MaD_Animal original maps](https://madnetwork.direct.quickconnect.to:5001/sharing/Il3LwuQWe) | 67 | `15aebce0aa9cbba25d4cdb66fff624c35f5bf36354626dcd3933bc6fa6d3a878` | 0 |
 | [MaD_Animal TD, AOD and mission maps](https://madnetwork.direct.quickconnect.to:5001/sharing/gAQlZomSz) | 191 | `c70c112ba673eb0d5c19c46cb5653d7b27fb82f4ccb2914db77a4b73b1486b31` | 0 |
@@ -184,7 +184,7 @@ the recorded compatibility value would not recover the required content.
 
 ## Recovered coverage and provenance
 
-Recovered packages include early R2â€“R11 releases, R12 category packs, R15
+Recovered packages include early R2–R11 releases, R12 and R12d category packs, R15
 standard and Predatore bundles, exact R18d/R18e builds, R19e/f/g/j, R20a,
 R21b assets distributed under R21c labels, and Arcade F03/R21h. R23f and R24
 website fallback downloads now recognize WordPress's numeric filename suffix.
