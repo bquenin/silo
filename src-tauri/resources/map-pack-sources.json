@@ -1275,6 +1275,52 @@
           "bytes": null,
           "filename_header": null,
           "modified": "2018-01-01 06:44:33"
+        },
+        {
+          "id": "wayback-20250822003754",
+          "name": "Internet Archive capture of original Shatabrick R12d installer",
+          "url": "https://web.archive.org/web/20250822003754id_/http://shatabrick.net/downloads/KWCommunityPatch102PlusMaps_R12d.exe",
+          "download_url": "https://web.archive.org/web/20250822003754id_/http://shatabrick.net/downloads/KWCommunityPatch102PlusMaps_R12d.exe",
+          "provider": "internet_archive",
+          "priority": 10,
+          "disabled": false,
+          "login_required": false,
+          "status": "nsis_archive_verified",
+          "bytes": 221576110,
+          "filename_header": "KWCommunityPatch102PlusMaps_R12d.exe",
+          "modified": null,
+          "sha256": "7721fcef87dda2b0f3341928f30087bf0f8ebebadc27c9e9ee8f656152b113c6",
+          "original_url": "http://shatabrick.net/downloads/KWCommunityPatch102PlusMaps_R12d.exe",
+          "capture_timestamp": "20250822003754",
+          "capture_sha1_base32": "KHWEQSMA5QLWUPBNUENFITX2CSEWEG76",
+          "verified_archives": [
+            {
+              "name": "102PlusMaps.big",
+              "bytes": 962334834,
+              "md5": "eab96654073e1bf0e0b37e60dca50d6d",
+              "sha256": "18d4c338e873e94e79c90ba8c09d5b038408a52c571e276c0b0acb59c565c7dc",
+              "map_count": 41,
+              "compatibility_codes": {
+                "0x1a": 41
+              }
+            },
+            {
+              "name": "102Scripts.big",
+              "bytes": 401342,
+              "md5": "9a4a95a649d4e5c20d506fd0f00a052e",
+              "sha256": "8339917aaf62ab6ebe41ad03c63c0804839d927e723c4fbf82b23d168da58064",
+              "map_count": 0,
+              "compatibility_codes": {}
+            },
+            {
+              "name": "102TextureFix.big",
+              "bytes": 5228774,
+              "md5": "be144e3111c4597bf470b295f0ac7405",
+              "sha256": "313815e5712664ce5269a758465a55d4251ee99a539a1479671243ddf3ccff44",
+              "map_count": 0,
+              "compatibility_codes": {}
+            }
+          ]
         }
       ],
       "compatibility_code": 26
@@ -3859,6 +3905,52 @@
           "bytes": null,
           "filename_header": null,
           "modified": "2018-01-01 06:43:39"
+        },
+        {
+          "id": "wayback-20250817110632",
+          "name": "Internet Archive capture of original Shatabrick R12d installer",
+          "url": "https://web.archive.org/web/20250817110632id_/http://shatabrick.net/downloads/KWCommunityPatch102PlusMaps2_R12d.exe",
+          "download_url": "https://web.archive.org/web/20250817110632id_/http://shatabrick.net/downloads/KWCommunityPatch102PlusMaps2_R12d.exe",
+          "provider": "internet_archive",
+          "priority": 10,
+          "disabled": false,
+          "login_required": false,
+          "status": "nsis_archive_verified",
+          "bytes": 110861931,
+          "filename_header": "KWCommunityPatch102PlusMaps2_R12d.exe",
+          "modified": null,
+          "sha256": "6991dce43dfc5a1357529721638eac0d7dab9f2f5567b037092a8599375dda47",
+          "original_url": "http://shatabrick.net/downloads/KWCommunityPatch102PlusMaps2_R12d.exe",
+          "capture_timestamp": "20250817110632",
+          "capture_sha1_base32": "MTXL2WHXQ6KH2ITIGCQVOR2LU65IMFVS",
+          "verified_archives": [
+            {
+              "name": "102PlusMaps2.big",
+              "bytes": 507542158,
+              "md5": "ecd129151bdb24c28f90814853ed838c",
+              "sha256": "b60f200b6f30359e30cc044d391ea23837aaad228d91d1c682f198ba675b7eae",
+              "map_count": 27,
+              "compatibility_codes": {
+                "0x1a": 27
+              }
+            },
+            {
+              "name": "102Scripts.big",
+              "bytes": 400971,
+              "md5": "ebc3f748f60c9af15f36049d543733ae",
+              "sha256": "eaa331a2b890b7220741e60f8b96cfb47bba9e8d9af494c974dd5dc0599abfe6",
+              "map_count": 0,
+              "compatibility_codes": {}
+            },
+            {
+              "name": "102TextureFix.big",
+              "bytes": 5228606,
+              "md5": "ffee4991c6eea73ccd02dbcd05900029",
+              "sha256": "288a11e790a6d95c3a66959a44a8ca38fe54bfd82a12309878136c195e1dd5cf",
+              "map_count": 0,
+              "compatibility_codes": {}
+            }
+          ]
         }
       ],
       "compatibility_code": 26
@@ -6284,6 +6376,52 @@
           "bytes": null,
           "filename_header": null,
           "modified": "2018-01-01 06:44:03"
+        },
+        {
+          "id": "wayback-20250817110918",
+          "name": "Internet Archive capture of original Shatabrick R12d installer",
+          "url": "https://web.archive.org/web/20250817110918id_/http://shatabrick.net/downloads/KWCommunityPatch102PlusMaps3_R12d.exe",
+          "download_url": "https://web.archive.org/web/20250817110918id_/http://shatabrick.net/downloads/KWCommunityPatch102PlusMaps3_R12d.exe",
+          "provider": "internet_archive",
+          "priority": 10,
+          "disabled": false,
+          "login_required": false,
+          "status": "nsis_archive_verified",
+          "bytes": 79147329,
+          "filename_header": "KWCommunityPatch102PlusMaps3_R12d.exe",
+          "modified": null,
+          "sha256": "ff0ac6f8d94947e52c0a3d003cd8e3562c722e8880c5dbfd5dbe48f29f521bcb",
+          "original_url": "http://shatabrick.net/downloads/KWCommunityPatch102PlusMaps3_R12d.exe",
+          "capture_timestamp": "20250817110918",
+          "capture_sha1_base32": "VR2NT6VQJLAR7RLRFPGVBAA6IQYVBJ26",
+          "verified_archives": [
+            {
+              "name": "102PlusMaps3.big",
+              "bytes": 299606896,
+              "md5": "f6d8febeee8822fef0f114a5cf1151b3",
+              "sha256": "583f84899aa0d3b5acafe97766672b6a3d0b10ffd8b6b994b1b8a6a42ae4e8d7",
+              "map_count": 13,
+              "compatibility_codes": {
+                "0x1a": 13
+              }
+            },
+            {
+              "name": "102Scripts.big",
+              "bytes": 400971,
+              "md5": "ebc3f748f60c9af15f36049d543733ae",
+              "sha256": "eaa331a2b890b7220741e60f8b96cfb47bba9e8d9af494c974dd5dc0599abfe6",
+              "map_count": 0,
+              "compatibility_codes": {}
+            },
+            {
+              "name": "102TextureFix.big",
+              "bytes": 5228606,
+              "md5": "ffee4991c6eea73ccd02dbcd05900029",
+              "sha256": "288a11e790a6d95c3a66959a44a8ca38fe54bfd82a12309878136c195e1dd5cf",
+              "map_count": 0,
+              "compatibility_codes": {}
+            }
+          ]
         }
       ],
       "compatibility_code": 26

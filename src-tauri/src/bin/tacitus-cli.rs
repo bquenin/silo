@@ -176,7 +176,10 @@ fn cmd_cache_pack(db_path: &PathBuf, rest: &[&str]) -> Result<()> {
         .first()
         .context("cache-pack needs a replay ID")?
         .parse::<i64>()?;
-    let package = PathBuf::from(rest.get(1).context("cache-pack needs a ZIP path")?);
+    let package = PathBuf::from(
+        rest.get(1)
+            .context("cache-pack needs a ZIP or NSIS installer path")?,
+    );
     let mut cache = automatic::cache_root();
     let mut source = None;
     let mut hash = None;

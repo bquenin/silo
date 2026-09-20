@@ -36,6 +36,8 @@ struct Link {
     status: String,
     disabled: bool,
     login_required: bool,
+    #[serde(default)]
+    sha256: Option<String>,
 }
 
 fn catalogue() -> &'static Catalogue {
@@ -56,7 +58,12 @@ fn matches(version: &Version, revision: &str) -> bool {
 }
 
 fn usable(link: &Link) -> Option<Url> {
-    if link.disabled || link.login_required || link.status != "zip_header_verified" {
+    let verified = link.status == "zip_header_verified"
+        || (link.status == "nsis_archive_verified"
+            && link.sha256.as_ref().is_some_and(|hash| {
+                hash.len() == 64 && hash.bytes().all(|b| b.is_ascii_hexdigit())
+            }));
+    if link.disabled || link.login_required || !verified {
         return None;
     }
     let url = Url::parse(link.download_url.as_deref()?).ok()?;
@@ -117,6 +124,7 @@ pub struct Candidate {
     pub url: Url,
     pub source: String,
     pub revision: String,
+    pub sha256: Option<String>,
 }
 
 #[cfg(test)]
@@ -131,6 +139,7 @@ pub fn command_post(revision: &str, kind: PackKind) -> Vec<Candidate> {
                 url: usable(link)?,
                 source: link.url.clone(),
                 revision: revision.into(),
+                sha256: link.sha256.clone(),
             })
         })
         .collect()
@@ -164,6 +173,7 @@ pub fn compatible(revision: Option<&str>, crc: u32, kind: PackKind) -> Vec<Candi
                     url: usable(link)?,
                     source: link.url.clone(),
                     revision: v.revision.clone()?,
+                    sha256: link.sha256.clone(),
                 })
             })
         })
@@ -200,6 +210,29 @@ pub fn compatible_kinds(revision: Option<&str>, crc: u32) -> Vec<PackKind> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn archived_r12d_installers_require_pinned_public_sources() {
+        for kind in [PackKind::Duel, PackKind::TwoVsTwo, PackKind::Large] {
+            let candidates = compatible(Some("R12d"), 0x1a, kind);
+            assert_eq!(candidates.len(), 1);
+            assert_eq!(candidates[0].url.host_str(), Some("web.archive.org"));
+            assert_eq!(candidates[0].sha256.as_ref().unwrap().len(), 64);
+        }
+        let mut link = Link {
+            url: "https://example.org/installer.exe".into(),
+            download_url: Some("https://example.org/installer.exe".into()),
+            status: "nsis_archive_verified".into(),
+            disabled: false,
+            login_required: false,
+            sha256: None,
+        };
+        assert!(usable(&link).is_none());
+        link.sha256 = Some("a".repeat(64));
+        assert!(usable(&link).is_some());
+        link.login_required = true;
+        assert!(usable(&link).is_none());
+    }
 
     #[test]
     fn reused_directory_suffix_selects_original_package_by_compatibility() {
@@ -320,6 +353,7 @@ mod tests {
             status: "zip_header_verified".into(),
             disabled: false,
             login_required: false,
+            sha256: None,
         };
         assert!(usable(&link).is_some());
         link.login_required = true;

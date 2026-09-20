@@ -176,12 +176,18 @@ positive report can mean that Play can download missing content.
 inspection without starting the game; `--offline` forbids downloads.
 `--cache DIR` overrides the cache. `--db` selects the catalogue as usual.
 
-`cache-pack` imports a separately obtained ZIP for a replay with a revision
+`cache-pack` imports a separately obtained ZIP or supported standalone NSIS
+installer for a replay with a revision
 suffix. It verifies the supplied SHA-256, exact map asset, compiled MC and
 script dependency before publishing the cache. The shareable source URL must
-exclude credentials. The original ZIP is preserved, and no installer or game
+exclude credentials. The supplied package is preserved, and no installer or game
 is executed. This supports packs obtained through Command Post's managed
 download flow without storing its session credentials in Tacitus.
+
+The original R12d installers also have verified Internet Archive fallback
+links. Automatic downloads must match their pinned SHA-256 before extraction.
+Tacitus reads their NSIS data records directly and retains each package's own
+maps and script dependency. It does not execute the downloaded program.
 
 To audit every catalogue entry without downloads or game simulation:
 

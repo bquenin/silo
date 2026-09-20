@@ -356,6 +356,7 @@ pub fn acquire(
             source: url.to_string(),
             url,
             revision: revision.into(),
+            sha256: None,
         };
         match acquire_from(
             cache, &stages, asset, crc, label, &candidate, &runtime, &client, control,
@@ -411,7 +412,13 @@ fn acquire_from(
     let cached_hash = if package_path.is_file() && previous.is_some() {
         control.stage("verifying", "Verifying the previously downloaded pack…")?;
         let actual = content::hash_file(&package_path, control)?.0;
-        previous.filter(|hash| *hash == actual)
+        previous.filter(|hash| {
+            *hash == actual
+                && candidate
+                    .sha256
+                    .as_ref()
+                    .is_none_or(|expected| expected.eq_ignore_ascii_case(hash))
+        })
     } else {
         None
     };
@@ -434,7 +441,14 @@ fn acquire_from(
                 control,
             ))
             .context("The required map pack could not be downloaded. Press Play to try again.")?;
-        zip::ZipArchive::new(File::open(&pending)?)
+        ensure!(
+            candidate
+                .sha256
+                .as_ref()
+                .is_none_or(|expected| expected.eq_ignore_ascii_case(&hash)),
+            "The downloaded package does not match the verified source SHA-256 digest."
+        );
+        super::package::validate_container(&pending)
             .context("The map provider returned an invalid package. Press Play to retry.")?;
         if package_path.is_file() {
             fs::remove_file(&package_path)?;
@@ -493,6 +507,60 @@ mod tests {
             let _ = stream.write_all(&response);
         });
         (url, thread)
+    }
+
+    #[test]
+    fn pinned_source_rejects_changed_download_before_retaining_or_extracting_it() {
+        let root = tempfile::tempdir().unwrap();
+        let stages = root.path().join("staging");
+        fs::create_dir(&stages).unwrap();
+        let body = b"MZchanged installer payload";
+        let mut response = format!(
+            "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+            body.len()
+        )
+        .into_bytes();
+        response.extend(body);
+        let (url, server) = serve(response);
+        let candidate = sources::Candidate {
+            source: url.to_string(),
+            url,
+            revision: "R12d".into(),
+            sha256: Some("0".repeat(64)),
+        };
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let client = reqwest::Client::builder()
+            .no_proxy()
+            .timeout(Duration::from_secs(5))
+            .build()
+            .unwrap();
+        let cancelled = Cancellation::default();
+        let control = Control {
+            cancelled: &cancelled,
+            progress: &|_| {},
+        };
+        let result = acquire_from(
+            root.path(),
+            &stages,
+            "data/maps/official/example/example.map",
+            0x1a,
+            "map pack",
+            &candidate,
+            &runtime,
+            &client,
+            &control,
+        );
+        server.join().unwrap();
+        assert!(result.unwrap_err().to_string().contains("SHA-256"));
+        assert_eq!(
+            fs::read_dir(root.path().join("downloads")).unwrap().count(),
+            0
+        );
+        assert_eq!(fs::read_dir(stages).unwrap().count(), 0);
+        assert!(!root.path().join("packages").exists());
     }
 
     #[test]

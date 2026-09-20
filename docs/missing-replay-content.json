@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "checked_at": "2026-09-20T08:40:21.821028+00:00",
+  "checked_at": "2026-09-20T10:07:15.817531+00:00",
   "description": "Missing content requirements only. The separately overwritten replay already has its stock map and is excluded.",
   "validation": {
     "community": "Require the exact full asset path and compiled MapMetaData MC, the matching script dependency, and verified archive hashes. MC is a compatibility code, not a cryptographic checksum.",
@@ -8,177 +8,9 @@
     "command_post_records": "Original registry records are recovery leads, not verified available downloads. Archive MD5 values are optional and must not replace metadata and script validation. Release labels alone are insufficient.",
     "early_multiplayer": "No matching early multiplayer version record was found. Available R3/R4 duel packs have MC 6/7 but do not contain these assets."
   },
-  "unique_missing_requirements": 46,
-  "affected_replays": 66,
+  "unique_missing_requirements": 32,
+  "affected_replays": 43,
   "requirements": [
-    {
-      "family": "R12d",
-      "asset": "data/maps/official/atacama eight 1.02+__12d/atacama eight 1.02+__12d.map",
-      "mc_hex": "1A",
-      "engine": [
-        1,
-        2,
-        0,
-        0
-      ],
-      "replay_count": 1
-    },
-    {
-      "family": "R12d",
-      "asset": "data/maps/official/extraction plateau 1.02+__12d/extraction plateau 1.02+__12d.map",
-      "mc_hex": "1A",
-      "engine": [
-        1,
-        2,
-        0,
-        0
-      ],
-      "replay_count": 2
-    },
-    {
-      "family": "R12d",
-      "asset": "data/maps/official/golden hour 1.02+__12d/golden hour 1.02+__12d.map",
-      "mc_hex": "1A",
-      "engine": [
-        1,
-        2,
-        0,
-        0
-      ],
-      "replay_count": 2
-    },
-    {
-      "family": "R12d",
-      "asset": "data/maps/official/nod gardens 1.02+ edition/nod gardens 1.02+ edition.map",
-      "mc_hex": "1A",
-      "engine": [
-        1,
-        2,
-        0,
-        0
-      ],
-      "replay_count": 1
-    },
-    {
-      "family": "R12d",
-      "asset": "data/maps/official/sick city 1.02+__12d/sick city 1.02+__12d.map",
-      "mc_hex": "1A",
-      "engine": [
-        1,
-        2,
-        0,
-        0
-      ],
-      "replay_count": 1
-    },
-    {
-      "family": "R12d",
-      "asset": "data/maps/official/tiberian dunes 1.02+ edition/tiberian dunes 1.02+ edition.map",
-      "mc_hex": "1A",
-      "engine": [
-        1,
-        2,
-        0,
-        0
-      ],
-      "replay_count": 1
-    },
-    {
-      "family": "R12d",
-      "asset": "data/maps/official/tiberian forest 1.02+__12d/tiberian forest 1.02+__12d.map",
-      "mc_hex": "1A",
-      "engine": [
-        1,
-        2,
-        0,
-        0
-      ],
-      "replay_count": 1
-    },
-    {
-      "family": "R12d",
-      "asset": "data/maps/official/tiberian gardens viii 1.02+__12d/tiberian gardens viii 1.02+__12d.map",
-      "mc_hex": "1A",
-      "engine": [
-        1,
-        2,
-        0,
-        0
-      ],
-      "replay_count": 1
-    },
-    {
-      "family": "R12d",
-      "asset": "data/maps/official/tiberium rift 1.02+__12d/tiberium rift 1.02+__12d.map",
-      "mc_hex": "1A",
-      "engine": [
-        1,
-        2,
-        0,
-        0
-      ],
-      "replay_count": 1
-    },
-    {
-      "family": "R12d",
-      "asset": "data/maps/official/tournament arena 1.02+__12d/tournament arena 1.02+__12d.map",
-      "mc_hex": "1A",
-      "engine": [
-        1,
-        2,
-        0,
-        0
-      ],
-      "replay_count": 1
-    },
-    {
-      "family": "R12d",
-      "asset": "data/maps/official/tournament galaxy 1.02+__12d/tournament galaxy 1.02+__12d.map",
-      "mc_hex": "1A",
-      "engine": [
-        1,
-        2,
-        0,
-        0
-      ],
-      "replay_count": 4
-    },
-    {
-      "family": "R12d",
-      "asset": "data/maps/official/tournament odyssey 1.02+__12d/tournament odyssey 1.02+__12d.map",
-      "mc_hex": "1A",
-      "engine": [
-        1,
-        2,
-        0,
-        0
-      ],
-      "replay_count": 5
-    },
-    {
-      "family": "R12d",
-      "asset": "data/maps/official/tournament rift 1.02+__12d/tournament rift 1.02+__12d.map",
-      "mc_hex": "1A",
-      "engine": [
-        1,
-        2,
-        0,
-        0
-      ],
-      "replay_count": 1
-    },
-    {
-      "family": "R12d",
-      "asset": "data/maps/official/wasteland dam 1.02+ edition/wasteland dam 1.02+ edition.map",
-      "mc_hex": "1A",
-      "engine": [
-        1,
-        2,
-        0,
-        0
-      ],
-      "replay_count": 1
-    },
     {
       "family": "R13c",
       "asset": "data/maps/official/tiberium rift 1.02+__13/tiberium rift 1.02+__13.map",
@@ -568,16 +400,6 @@
   "command_post_release_records": [
     {
       "set": "102plusmaps",
-      "version_id": "61caf7309876a",
-      "label": "R12d",
-      "mc_hex": "1A",
-      "archive": "102plusmaps.big",
-      "archive_md5": null,
-      "installer": "KWCommunityPatch102PlusMaps_R12d.exe",
-      "extra_files": []
-    },
-    {
-      "set": "102plusmaps",
       "version_id": "61caf730972df",
       "label": "R13c",
       "mc_hex": "20",
@@ -604,16 +426,6 @@
       "archive": "R201v1Maps.big",
       "archive_md5": "fa8536a0645b43abe2089c42914ad798",
       "installer": "R20c 1vs1 Final Map Pack.exe",
-      "extra_files": []
-    },
-    {
-      "set": "102plusmaps2",
-      "version_id": "61caf730a5c52",
-      "label": "R12d",
-      "mc_hex": "1A",
-      "archive": "102PlusMaps2.big",
-      "archive_md5": null,
-      "installer": "KWCommunityPatch102PlusMaps2_R12d.exe",
       "extra_files": []
     },
     {
@@ -664,16 +476,6 @@
       "archive": "102PlusMaps2A_13.big",
       "archive_md5": "bb98d0c8bdd82c909cb3cecc03c753de",
       "installer": "KWCommunityPatch102PlusMapsA_R13.exe",
-      "extra_files": []
-    },
-    {
-      "set": "102plusmaps3",
-      "version_id": "61caf730b365f",
-      "label": "R12d",
-      "mc_hex": "1A",
-      "archive": "102PlusMaps3.big",
-      "archive_md5": null,
-      "installer": "KWCommunityPatch102PlusMaps3_R12d.exe",
       "extra_files": []
     },
     {

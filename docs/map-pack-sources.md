@@ -1,6 +1,6 @@
 # Historical map pack sources
 
-Checked 2026-09-20. **462 distinct source links**, including **382 public ZIP downloads whose headers were verified**. The catalogue records 403 pack versions and verified additions.
+Checked 2026-09-20. **465 distinct source links**, including **382 public ZIP downloads whose headers were verified**. There are also **3 fully verified archived NSIS installers**. The catalogue records 403 pack versions and verified additions.
 
 A header check confirms that a public URL returned ZIP bytes; it does not validate the whole archive or prove replay compatibility. Unavailable links remain in the catalogue as research leads. Login pages and transient failures are not proof that a pack no longer exists.
 
@@ -8,17 +8,27 @@ A header check confirms that a public URL returned ZIP bytes; it does not valida
 
 ## Source order in Tacitus
 
-Tacitus checks installed and cached content first. For each likely map category, it tries verified public links from Command Post before the exact-version list on kaneswrath.com. A failed download or extraction advances to the fallback. It never accepts a candidate only when its full internal map path and compiled compatibility value match the replay. Provider labels can differ from internal suffixes. Unverified test releases and pack families remain excluded.
+Tacitus checks installed and cached content first. For each likely map category, it tries verified public links from Command Post and then recorded archive mirrors before the exact-version list on kaneswrath.com. A failed download or extraction advances to the fallback. It accepts a candidate only when its full internal map path and compiled compatibility value match the replay. Provider labels can differ from internal suffixes. Unverified test releases and pack families remain excluded.
 
-The catalogue embeds only shareable URLs. Automatic candidates must be public. Some R19 packs were recovered through Command Post managed downloads and verified against its archive checksums; their restricted links remain excluded from automatic downloads. Supplied ZIPs can be imported using `tacitus-cli cache-pack`. Credentials and session-bound download URLs are excluded.
+The catalogue embeds only shareable URLs. Automatic candidates must be public. Some R19 packs were recovered through Command Post managed downloads and verified against its archive checksums; their restricted links remain excluded from automatic downloads. Supplied ZIPs and supported standalone NSIS installers can be imported using `tacitus-cli cache-pack`. Archived installer downloads require their recorded SHA-256. Credentials and session-bound download URLs are excluded.
 
 Metadata provenance: [Command Post public metadata ZIP](https://corefiles1.s3.eu-central-1.amazonaws.com/metadata.zip) and the Command Post `fetch_files.php` registry, queried by exact `metapack_name` and `meta_version_id`. The version identifier also supplies the map archive name: for example R20e uses `R201v1Maps.big`, while R21h uses `R21g1v1Maps.big`. The `compatibility_code` selects candidates, then Tacitus checks the actual compiled MapMetaData value against replay `MC`. Original R2–R7 packages without separate scripts use stock scripts only with an inspected, SHA-256-pinned exception. [Measured catalogue coverage](replay-content-coverage.md) separates verified content from remaining missing requirements.
 
-Installer support covers ZIPs containing BIG files, ANSI/Unicode solid LZMA NSIS, Unicode non-solid DEFLATE NSIS, and Unicode chunked LZMA NSISBI. Other installer layouts fail without being executed. Not every historical pack listed here has been fully extracted or replay-tested.
+Installer support covers ZIPs containing BIG files or supported installers, standalone NSIS installers, ANSI/Unicode solid LZMA NSIS, Unicode non-solid DEFLATE NSIS, and Unicode chunked LZMA NSISBI. Other installer layouts fail without being executed. Not every historical pack listed here has been fully extracted or replay-tested.
 
 ## Recovered original packs
 
 R15 standard and Predatore bundles were recovered from Command Post public storage; their beta labels contain the exact `__15` assets. R20 registry records contain `__20a`, and R21c packages contain `__21b`; these mappings are recorded explicitly. R18d and R18e both use `__18` paths, distinguished by MC values `2B` and `2C`. Early `1.02+ edition` maps are likewise distinguished by compiled MC, never by display name alone. The website Arcade F03 source contains exact `__r21h` assets with MC `5` and its own scripts.
+
+## R12d recovered from Wayback
+
+All three original Shatabrick R12d installers were recovered from complete August 2025 Internet Archive captures. Their full payload SHA-1 hashes match the Wayback CDX records. Tacitus pins their SHA-256 values and unpacks them as data; no installer is executed. The packages contain 41, 27 and 13 map assets respectively, all with compiled MC `1A`, and the scripts supplied by each original installer. They satisfy all 23 R12d replay requirements in the checked catalogue, including unversioned companion maps. A fresh automatic download and preparation of the large-map pack passed, as did offline preparation from the other two packs.
+
+| Pack | Archived original installer | Bytes | SHA-256 |
+| --- | --- | ---: | --- |
+| 1v1 | [Download](https://web.archive.org/web/20250822003754id_/http://shatabrick.net/downloads/KWCommunityPatch102PlusMaps_R12d.exe) | 221,576,110 | `7721fcef87dda2b0f3341928f30087bf0f8ebebadc27c9e9ee8f656152b113c6` |
+| 2v2 | [Download](https://web.archive.org/web/20250817110632id_/http://shatabrick.net/downloads/KWCommunityPatch102PlusMaps2_R12d.exe) | 110,861,931 | `6991dce43dfc5a1357529721638eac0d7dab9f2f5567b037092a8599375dda47` |
+| 4v4 | [Download](https://web.archive.org/web/20250817110918id_/http://shatabrick.net/downloads/KWCommunityPatch102PlusMaps3_R12d.exe) | 79,147,329 | `ff0ac6f8d94947e52c0a3d003cd8e3562c722e8880c5dbfd5dbe48f29f521bcb` |
 
 ## R16
 
@@ -52,7 +62,7 @@ The 1v1 and 2v2 packages were fully downloaded and extracted as data. Tacitus pr
 
 The 1v1 ZIP SHA-256 is `7c0ab9ddfd58cd5b44b134a19eea01ff6b3fa90d2e232dab033d46edd1a6147b`.
 
-## Command Post links
+## Command Post releases and archive mirrors
 
 | Revision | Pack | Link | Check |
 | --- | --- | --- | --- |
@@ -94,6 +104,7 @@ The 1v1 ZIP SHA-256 is `7c0ab9ddfd58cd5b44b134a19eea01ff6b3fa90d2e232dab033d46ed
 | R12b | 1v1 | [Download](https://cgf-uploads.fra1.cdn.digitaloceanspaces.com/files/1.02+/R12b/KWCommunityPatch102PlusMaps_R12b.zip) | ZIP header verified |
 | R12c | 1v1 | [Download](https://cgf-uploads.fra1.cdn.digitaloceanspaces.com/files/1.02+/R12c/KWCommunityPatch102PlusMaps_R12c.zip) | ZIP header verified |
 | R12d | 1v1 | [Download](http://app-direct.net/production/public/files/1.02+/R12d/KWCommunityPatch102PlusMaps_R12d.zip) | HTTP 404 |
+| R12d | 1v1 | [Download](https://web.archive.org/web/20250822003754id_/http://shatabrick.net/downloads/KWCommunityPatch102PlusMaps_R12d.exe) | Archived NSIS installer fully verified; SHA-256 pinned |
 | R13 | 1v1 | [Download](http://app-direct.net/production/public/files/1.02+/R13/KWCommunityPatch102PlusMaps_R13.zip) | HTTP 404 |
 | R13b | 1v1 | [Download](http://app-direct.net/production/public/files/1.02+/R13b/KWCommunityPatch102PlusMaps_R13.zip) | HTTP 404 |
 | R13c | 1v1 | [Download](http://app-direct.net/production/public/files/1.02%2B/R13c/KWCommunityPatch102PlusMaps_R13.zip) | HTTP 404 |
@@ -183,6 +194,7 @@ The 1v1 ZIP SHA-256 is `7c0ab9ddfd58cd5b44b134a19eea01ff6b3fa90d2e232dab033d46ed
 | R12b | 2v2 | [Download](https://cgf-uploads.fra1.cdn.digitaloceanspaces.com/files/1.02+/R12b/KWCommunityPatch102PlusMaps2_R12b.zip) | ZIP header verified |
 | R12c | 2v2 | [Download](https://cgf-uploads.fra1.cdn.digitaloceanspaces.com/files/1.02+/R12c/KWCommunityPatch102PlusMaps2_R12c.zip) | ZIP header verified |
 | R12d | 2v2 | [Download](http://app-direct.net/production/public/files/1.02+/R12d/KWCommunityPatch102PlusMaps2_R12d.zip) | HTTP 404 |
+| R12d | 2v2 | [Download](https://web.archive.org/web/20250817110632id_/http://shatabrick.net/downloads/KWCommunityPatch102PlusMaps2_R12d.exe) | Archived NSIS installer fully verified; SHA-256 pinned |
 | R13 | 2v2 | [Download](http://app-direct.net/production/public/files/1.02+/R13/KWCommunityPatch102PlusMaps_R13.zip) | HTTP 404 |
 | R13b | 2v2 | [Download](http://app-direct.net/production/public/files/1.02+/R13b/KWCommunityPatch102PlusMaps_R13.zip) | HTTP 404 |
 | R13c | 2v2 | [Download](http://app-direct.net/production/public/files/1.02%2B/R13c/KWCommunityPatch102PlusMaps_R13.zip) | HTTP 404 |
@@ -263,6 +275,7 @@ The 1v1 ZIP SHA-256 is `7c0ab9ddfd58cd5b44b134a19eea01ff6b3fa90d2e232dab033d46ed
 | R12b | 4v4 | [Download](https://cgf-uploads.fra1.cdn.digitaloceanspaces.com/files/1.02+/R12b/KWCommunityPatch102PlusMaps3_R12b.zip) | ZIP header verified |
 | R12c | 4v4 | [Download](https://cgf-uploads.fra1.cdn.digitaloceanspaces.com/files/1.02+/R12c/KWCommunityPatch102PlusMaps3_R12c.zip) | ZIP header verified |
 | R12d | 4v4 | [Download](http://app-direct.net/production/public/files/1.02+/R12d/KWCommunityPatch102PlusMaps3_R12d.zip) | HTTP 404 |
+| R12d | 4v4 | [Download](https://web.archive.org/web/20250817110918id_/http://shatabrick.net/downloads/KWCommunityPatch102PlusMaps3_R12d.exe) | Archived NSIS installer fully verified; SHA-256 pinned |
 | R13 | 4v4 | [Download](http://app-direct.net/production/public/files/1.02+/R13/KWCommunityPatch102PlusMaps_R13.zip) | HTTP 404 |
 | R13 Beta 2 | 4v4 | [Download](http://app-direct.net/production/public/files/1.02+/R13/KWCommunityPatch102PlusMaps_R13.zip) | HTTP 404 |
 | R13b | 4v4 | [Download](http://app-direct.net/production/public/files/1.02+/R13b/KWCommunityPatch102PlusMaps_R13.zip) | HTTP 404 |

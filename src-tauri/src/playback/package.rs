@@ -1,4 +1,4 @@
-//! Data-only extraction of the provider's ZIP / NSISBI map packs.
+//! Data-only extraction of ZIP packages and standalone NSIS map installers.
 //!
 //! NSIS structures follow Source/exehead/fileform.h (NSIS / NSISBI).
 //! We read file records only: no installer instructions, plugins, engine
@@ -152,6 +152,14 @@ pub fn unpack(
     control: &Control<'_>,
 ) -> Result<PathBuf> {
     control.stage("extracting", format!("Unpacking the {label}…"))?;
+    if standalone_installer(package)? {
+        let output = stage.join("content");
+        fs::create_dir(&output)?;
+        extract_installer(package, &output, revision, label, control).context(
+            "This map pack could not be unpacked safely. Its installer format may be unsupported.",
+        )?;
+        return Ok(output);
+    }
     let mut zip = zip::ZipArchive::new(File::open(package)?)
         .context("The map provider did not return a valid ZIP package. Press Play to retry.")?;
     ensure!(
@@ -224,6 +232,38 @@ pub fn unpack(
         )?;
     }
     Ok(output)
+}
+
+fn standalone_installer(package: &Path) -> Result<bool> {
+    let mut file = File::open(package)?;
+    ensure!(
+        file.metadata()?.len() <= MAX_FILE,
+        "The map package exceeds the supported size."
+    );
+    let mut magic = [0; 2];
+    file.read_exact(&mut magic)
+        .context("Truncated map package")?;
+    Ok(&magic == b"MZ")
+}
+
+/// Check the container before retaining a download. Full extraction still
+/// validates NSIS records, bounds and streams, without running the installer.
+pub fn validate_container(package: &Path) -> Result<()> {
+    if standalone_installer(package)? {
+        let mut prefix = Vec::new();
+        File::open(package)?
+            .take(8 * 1024 * 1024)
+            .read_to_end(&mut prefix)?;
+        ensure!(
+            (0..prefix.len().saturating_sub(36))
+                .step_by(512)
+                .any(|i| &prefix[i + 4..i + 20] == SIGNATURE),
+            "NSIS header not found"
+        );
+    } else {
+        zip::ZipArchive::new(File::open(package)?)?;
+    }
+    Ok(())
 }
 
 fn u32_at(data: &[u8], at: usize) -> Result<u32> {
@@ -756,7 +796,8 @@ mod tests {
         payload.extend(header_size.to_le_bytes());
         payload.extend((28 + compressed.len() as u32 + 4).to_le_bytes());
         payload.extend(compressed);
-        // The outer ZIP validates payload integrity; the NSIS CRC isn't used.
+        // ZIP CRCs or pinned transfer hashes validate payload integrity;
+        // the NSIS CRC isn't used.
         payload.extend(0u32.to_le_bytes());
         let path = root.join("installer.dat");
         fs::write(&path, payload).unwrap();
@@ -789,6 +830,35 @@ mod tests {
         assert!(!root.path().join("102Scripts.big").exists());
         assert_progress(&events.borrow(), SOLID.len() as u64, true);
         assert_eq!(fs::read_dir(root.path()).unwrap().count(), 2);
+    }
+
+    #[test]
+    fn standalone_installer_uses_bounded_data_only_extraction() {
+        let root = tempfile::tempdir().unwrap();
+        let input = solid_installer(root.path(), SOLID, SOLID_HEADER);
+        let cancel = Cancellation::default();
+        let control = Control {
+            cancelled: &cancel,
+            progress: &|_| {},
+        };
+        validate_container(&input).unwrap();
+        let output = unpack(&input, root.path(), "R16", "map pack", &control).unwrap();
+        assert_eq!(
+            fs::read(output.join("102plusmaps.big")).unwrap(),
+            b"exact R16 map"
+        );
+        assert_eq!(
+            fs::read(output.join("102scripts.big")).unwrap(),
+            b"matching R16 scripts"
+        );
+        assert_eq!(fs::read_dir(output).unwrap().count(), 2);
+        assert_eq!(fs::read_dir(root.path()).unwrap().count(), 2);
+
+        let invalid = root.path().join("invalid.exe");
+        fs::write(&invalid, b"MZnot an NSIS installer").unwrap();
+        assert!(validate_container(&invalid).is_err());
+        fs::write(&invalid, b"<html>download unavailable</html>").unwrap();
+        assert!(validate_container(&invalid).is_err());
     }
 
     #[test]

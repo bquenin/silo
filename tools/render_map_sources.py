@@ -16,6 +16,7 @@ def render(data):
     links = [link for _, link in cp] + web + manual
     unique = {link['url'] for link in links}
     verified = {link['url'] for link in links if link['status'] == 'zip_header_verified'}
+    archived_installers = {link['url'] for link in links if link['status'] == 'nsis_archive_verified'}
     pack_names = {'102plusmaps': '1v1', '102plusmaps2': '2v2',
                   '102plusmaps3': '4v4', '102pluslegacymaps': 'Legacy',
                   '102plusmapsa': 'Predatore 1', '102plusmaps2a': 'Predatore 2',
@@ -24,6 +25,7 @@ def render(data):
                     'http_404': 'HTTP 404', 'TimeoutError': 'Timed out', 'unchecked': 'Unchecked',
                     'zip_index_verified': 'ZIP headers and indexes verified',
                     'managed_download_verified': 'Full managed download verified; login required',
+                    'nsis_archive_verified': 'Archived NSIS installer fully verified; SHA-256 pinned',
                     'wrong_revision': 'Wrong revision (excluded)'}
     def status(link):
         return status_names.get(link['status'], link['status'])
@@ -31,6 +33,7 @@ def render(data):
         '# Historical map pack sources', '',
         f"Checked {data['checked_at']}. **{len(unique)} distinct source links**, including "
         f"**{len(verified)} public ZIP downloads whose headers were verified**. "
+        f"There are also **{len(archived_installers)} fully verified archived NSIS installers**. "
         f"The catalogue records {len(data['versions'])} pack versions and verified additions.", '',
         'A header check confirms that a public URL returned ZIP bytes; it does not validate the '
         'whole archive or prove replay compatibility. Unavailable links remain in the catalogue '
@@ -39,15 +42,16 @@ def render(data):
         'This file is generated with `python tools/render_map_sources.py`.', '',
         '## Source order in Tacitus', '',
         'Tacitus checks installed and cached content first. For each likely map category, it '
-        'tries verified public links from Command Post before the exact-version list on '
-        'kaneswrath.com. A failed download or extraction advances to the fallback. It never '
+        'tries verified public links from Command Post and then recorded archive mirrors '
+        'before the exact-version list on kaneswrath.com. A failed download or extraction advances to the fallback. It '
         'accepts a candidate only when its full internal map path and compiled compatibility '
         'value match the replay. Provider labels can differ from internal suffixes. '
         'Unverified test releases and pack families remain excluded.', '',
         'The catalogue embeds only shareable URLs. Automatic candidates must be public. '
         'Some R19 packs were recovered through Command Post managed downloads and verified '
         'against its archive checksums; their restricted links remain excluded from automatic '
-        'downloads. Supplied ZIPs can be imported using `tacitus-cli cache-pack`. '
+        'downloads. Supplied ZIPs and supported standalone NSIS installers can be imported '
+        'using `tacitus-cli cache-pack`. Archived installer downloads require their recorded SHA-256. '
         'Credentials and session-bound download URLs are excluded.', '',
         'Metadata provenance: [Command Post public metadata ZIP]('
         + data['metadata_url'] + ') and the Command Post `fetch_files.php` registry, queried '
@@ -59,7 +63,7 @@ def render(data):
         'an inspected, SHA-256-pinned exception. '
         '[Measured catalogue coverage](replay-content-coverage.md) separates verified '
         'content from remaining missing requirements.', '',
-        'Installer support covers ZIPs containing BIG files, ANSI/Unicode solid LZMA NSIS, '
+        'Installer support covers ZIPs containing BIG files or supported installers, standalone NSIS installers, ANSI/Unicode solid LZMA NSIS, '
         'Unicode non-solid DEFLATE NSIS, and Unicode chunked LZMA NSISBI. '
         'Other installer layouts fail without being executed. '
         'Not every historical pack listed here has been fully extracted or replay-tested.', '',
@@ -71,6 +75,22 @@ def render(data):
         'Early `1.02+ edition` maps are likewise distinguished by compiled MC, never '
         'by display name alone. The website Arcade F03 source contains exact `__r21h` '
         'assets with MC `5` and its own scripts.', '',
+        '## R12d recovered from Wayback', '',
+        'All three original Shatabrick R12d installers were recovered from complete August '
+        '2025 Internet Archive captures. Their full payload SHA-1 hashes match the Wayback '
+        'CDX records. Tacitus pins their SHA-256 values and unpacks them as data; no installer '
+        'is executed. The packages contain 41, 27 and 13 map assets respectively, all with '
+        'compiled MC `1A`, and the scripts supplied by each original installer. They satisfy '
+        'all 23 R12d replay requirements in the checked catalogue, including unversioned '
+        'companion maps. A fresh automatic download and preparation of the large-map pack '
+        'passed, as did offline preparation from the other two packs.', '',
+        '| Pack | Archived original installer | Bytes | SHA-256 |',
+        '| --- | --- | ---: | --- |',
+    ]
+    for version, link in cp:
+        if version['revision'] == 'R12d' and link['status'] == 'nsis_archive_verified':
+            lines.append(f"| {pack_names[version['set']]} | [Download]({link['url']}) | {link['bytes']:,} | `{link['sha256']}` |")
+    lines += ['',
         '## R16', '',
         'Command Post labels this release **R16 Beta**. Its actual map assets use the '
         '`__16` suffix recorded by R16 replays. The three verified standard pack records '
@@ -121,7 +141,7 @@ def render(data):
               'launch configurations without starting the game.', '',
               'The 1v1 ZIP SHA-256 is '
               '`7c0ab9ddfd58cd5b44b134a19eea01ff6b3fa90d2e232dab033d46edd1a6147b`.', '',
-              '## Command Post links', '',
+              '## Command Post releases and archive mirrors', '',
               '| Revision | Pack | Link | Check |', '| --- | --- | --- | --- |']
     for version, link in cp:
         label = version['version'] + (' (test)' if version['test'] else '')
