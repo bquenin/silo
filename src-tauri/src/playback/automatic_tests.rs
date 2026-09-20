@@ -9,19 +9,46 @@ struct Fixture {
 }
 
 fn big(path: &Path, names: &[&str]) {
+    big_with_crc(path, names, 0x19);
+}
+
+fn big_with_crc(path: &Path, names: &[&str], crc: u32) {
+    big_with_metadata(path, names, crc, "data/additionalmaps/mapmetadata_fixture");
+}
+
+fn big_with_metadata(path: &Path, names: &[&str], crc: u32, prefix: &str) {
     fs::create_dir_all(path.parent().unwrap()).unwrap();
-    let end = 16 + names.iter().map(|n| 9 + n.len()).sum::<usize>();
+    let mut files: Vec<_> = names
+        .iter()
+        .map(|name| ((*name).to_owned(), vec![1u8]))
+        .collect();
+    let maps: Vec<_> = names
+        .iter()
+        .copied()
+        .filter(|n| n.ends_with(".map"))
+        .collect();
+    if !maps.is_empty() {
+        let (binary, manifest) = super::super::metadata::fixture(&maps, crc);
+        files.push((format!("{prefix}.bin"), binary));
+        files.push((format!("{prefix}.manifest"), manifest));
+    }
+    let end = 16 + files.iter().map(|(name, _)| 9 + name.len()).sum::<usize>();
+    let size = end + files.iter().map(|(_, bytes)| bytes.len()).sum::<usize>();
     let mut data = b"BIGF".to_vec();
-    data.extend(((end + names.len()) as u32).to_be_bytes());
-    data.extend((names.len() as u32).to_be_bytes());
+    data.extend((size as u32).to_be_bytes());
+    data.extend((files.len() as u32).to_be_bytes());
     data.extend((end as u32).to_be_bytes());
-    for (i, name) in names.iter().enumerate() {
-        data.extend(((end + i) as u32).to_be_bytes());
-        data.extend(1u32.to_be_bytes());
+    let mut offset = end;
+    for (name, bytes) in &files {
+        data.extend((offset as u32).to_be_bytes());
+        data.extend((bytes.len() as u32).to_be_bytes());
         data.extend(name.as_bytes());
         data.push(0);
+        offset += bytes.len();
     }
-    data.resize(end + names.len(), 1);
+    for (_, bytes) in files {
+        data.extend(bytes);
+    }
     fs::write(path, data).unwrap();
 }
 
@@ -135,6 +162,191 @@ impl Fixture {
 }
 
 #[test]
+fn stock_map_requires_the_active_engines_compiled_compatibility() {
+    let mut f = Fixture::new();
+    f.target.map_path = "283data/maps/official/stock".into();
+    big_with_metadata(
+        &f.game.join("Core/1.2/base.big"),
+        &["data/maps/official/stock/stock.map"],
+        0x19,
+        "data/mapmetadata",
+    );
+    assert!(f.prepare().is_ok());
+    f.target.map_crc = "1A".into();
+    big_with_metadata(
+        &f.game.join("Meta/1.2/base.big"),
+        &["data/maps/official/stock/stock.map"],
+        0x1a,
+        "data/mapmetadata",
+    );
+    assert!(f.prepare().is_err());
+}
+
+#[test]
+fn reused_map_path_requires_the_replays_compiled_compatibility_value() {
+    let mut f = Fixture::new();
+    f.cached("24g");
+    f.target.map_crc = "1A".into();
+    assert!(f
+        .prepare()
+        .err()
+        .unwrap()
+        .to_string()
+        .contains("not available locally"));
+    let stage = tempfile::tempdir_in(f._temporary.path()).unwrap();
+    big_with_crc(
+        &stage.path().join("R24g1v1Maps.big"),
+        &[&Fixture::asset("24g")],
+        0x1a,
+    );
+    big(
+        &stage.path().join("102Scripts.big"),
+        &["data/scripts/scripts.lua"],
+    );
+    let cancel = Cancellation::default();
+    let pack = content::publish(
+        stage.path(),
+        &f.cache,
+        "R24g",
+        "https://example.test/hotfix",
+        "verified-hash",
+        &Control {
+            cancelled: &cancel,
+            progress: &|_| {},
+        },
+    )
+    .unwrap();
+    let prepared = f.prepare().unwrap();
+    assert!(prepared
+        .archives
+        .iter()
+        .all(|p| p.parent() == Some(pack.as_path())));
+}
+
+#[test]
+fn unversioned_community_map_uses_exact_path_and_compiled_metadata() {
+    let mut f = Fixture::new();
+    f.target.map_path = "281data/maps/official/map 1.02+ edition".into();
+    let stage = tempfile::tempdir_in(f._temporary.path()).unwrap();
+    big(
+        &stage.path().join("102plusmaps.big"),
+        &["data/maps/official/map 1.02+ edition/map 1.02+ edition.map"],
+    );
+    big(
+        &stage.path().join("102Scripts.big"),
+        &["data/scripts/scripts.lua"],
+    );
+    let cancel = Cancellation::default();
+    content::publish(
+        stage.path(),
+        &f.cache,
+        "R12",
+        "https://example.test/original",
+        "verified-hash",
+        &Control {
+            cancelled: &cancel,
+            progress: &|_| {},
+        },
+    )
+    .unwrap();
+    assert!(f.prepare().is_ok());
+    f.target.map_crc = "18".into();
+    assert!(f.prepare().is_err());
+}
+
+#[test]
+fn a_shadowing_map_with_different_compatibility_cannot_be_prepared() {
+    let f = Fixture::new();
+    let stage = tempfile::tempdir_in(f._temporary.path()).unwrap();
+    for (name, crc) in [("a.big", 0x18), ("z.big", 0x19)] {
+        big_with_crc(&stage.path().join(name), &[&Fixture::asset("24g")], crc);
+    }
+    big(
+        &stage.path().join("102Scripts.big"),
+        &["data/scripts/scripts.lua"],
+    );
+    let cancel = Cancellation::default();
+    content::publish(
+        stage.path(),
+        &f.cache,
+        "R24g",
+        "https://example.test/pack",
+        "fixture-hash",
+        &Control {
+            cancelled: &cancel,
+            progress: &|_| {},
+        },
+    )
+    .unwrap();
+    assert!(f.prepare().is_err());
+}
+
+#[test]
+fn imported_pack_requires_exact_map_and_digest_and_prepares_offline() {
+    use std::io::Write;
+    use zip::{write::SimpleFileOptions, ZipWriter};
+
+    let f = Fixture::new();
+    let payload = f._temporary.path().join("payload");
+    let package = f._temporary.path().join("original.zip");
+    big(&payload.join("R24g1v1Maps.big"), &[&Fixture::asset("24g")]);
+    big(
+        &payload.join("102Scripts.big"),
+        &["data/scripts/scripts.lua"],
+    );
+    let mut zip = ZipWriter::new(fs::File::create(&package).unwrap());
+    for name in ["R24g1v1Maps.big", "102Scripts.big"] {
+        zip.start_file(name, SimpleFileOptions::default()).unwrap();
+        zip.write_all(&fs::read(payload.join(name)).unwrap())
+            .unwrap();
+    }
+    zip.finish().unwrap();
+    let bytes = fs::read(&package).unwrap();
+    let hash = hex::encode(Sha256::digest(&bytes));
+    let cancel = Cancellation::default();
+    let control = Control {
+        cancelled: &cancel,
+        progress: &|_| {},
+    };
+    let source = "https://example.test/original.zip";
+    assert!(import_package(
+        &f.target,
+        &f.cache,
+        &package,
+        source,
+        &"0".repeat(64),
+        &control
+    )
+    .unwrap_err()
+    .to_string()
+    .contains("SHA-256"));
+    let mut other = f.target.clone();
+    other.map_path = "283data/maps/official/other 1.02+__24g".into();
+    assert!(
+        import_package(&other, &f.cache, &package, source, &hash, &control)
+            .unwrap_err()
+            .to_string()
+            .contains("exact map asset")
+    );
+    assert!(!f.cache.join("packages").exists());
+    assert!(import_package(
+        &f.target,
+        &f.cache,
+        &package,
+        "https://example.test/pack?access_token=secret",
+        &hash,
+        &control
+    )
+    .is_err());
+    let directory = import_package(&f.target, &f.cache, &package, source, &hash, &control).unwrap();
+    assert!(directory.join("manifest.json").is_file());
+    assert_eq!(fs::read(&package).unwrap(), bytes);
+    assert_eq!(fs::read_dir(f.cache.join("staging")).unwrap().count(), 0);
+    let prepared = f.prepare().unwrap();
+    assert_eq!(prepared.archives.len(), 2);
+}
+
+#[test]
 fn r16_replay_can_prepare_from_the_verified_command_post_beta_label() {
     let mut f = Fixture::new();
     f.target.map_path = "283data/maps/official/map 1.02+__16".into();
@@ -182,7 +394,7 @@ fn incomplete_historical_cache_does_not_hide_companion_maps() {
             complete
         );
         assert_eq!(
-            content::cached(&f.cache, companion, "R16", true, &control)
+            content::cached(&f.cache, companion, 0x19, true, &control)
                 .unwrap()
                 .is_some(),
             complete

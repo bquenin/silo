@@ -23,6 +23,7 @@ def render(data):
     status_names = {'zip_header_verified': 'ZIP header verified', 'not_zip': 'No ZIP returned',
                     'http_404': 'HTTP 404', 'TimeoutError': 'Timed out', 'unchecked': 'Unchecked',
                     'zip_index_verified': 'ZIP headers and indexes verified',
+                    'managed_download_verified': 'Full managed download verified; login required',
                     'wrong_revision': 'Wrong revision (excluded)'}
     def status(link):
         return status_names.get(link['status'], link['status'])
@@ -30,7 +31,7 @@ def render(data):
         '# Historical map pack sources', '',
         f"Checked {data['checked_at']}. **{len(unique)} distinct source links**, including "
         f"**{len(verified)} public ZIP downloads whose headers were verified**. "
-        f"Command Post was queried for {len(data['versions'])} registered pack versions.", '',
+        f"The catalogue records {len(data['versions'])} pack versions and verified additions.", '',
         'A header check confirms that a public URL returned ZIP bytes; it does not validate the '
         'whole archive or prove replay compatibility. Unavailable links remain in the catalogue '
         'as research leads. Login pages and transient failures are not proof that a pack no longer exists.', '',
@@ -40,20 +41,36 @@ def render(data):
         'Tacitus checks installed and cached content first. For each likely map category, it '
         'tries verified public links from Command Post before the exact-version list on '
         'kaneswrath.com. A failed download or extraction advances to the fallback. It never '
-        'substitutes another revision. Test releases and alternate pack families are recorded '
-        'here but excluded from automatic selection.', '',
-        'The catalogue embeds only shareable URLs. Downloading these files does not require '
-        'a Command Post account. The discovery registry itself uses a Command Post session; '
-        'credentials and session-bound download URLs are excluded.', '',
+        'accepts a candidate only when its full internal map path and compiled compatibility '
+        'value match the replay. Provider labels can differ from internal suffixes. '
+        'Unverified test releases and pack families remain excluded.', '',
+        'The catalogue embeds only shareable URLs. Automatic candidates must be public. '
+        'Some R19 packs were recovered through Command Post managed downloads and verified '
+        'against its archive checksums; their restricted links remain excluded from automatic '
+        'downloads. Supplied ZIPs can be imported using `tacitus-cli cache-pack`. '
+        'Credentials and session-bound download URLs are excluded.', '',
         'Metadata provenance: [Command Post public metadata ZIP]('
         + data['metadata_url'] + ') and the Command Post `fetch_files.php` registry, queried '
         'by exact `metapack_name` and `meta_version_id`. The version identifier also supplies '
         'the map archive name: for example R20e uses `R201v1Maps.big`, while R21h uses '
-        '`R21g1v1Maps.big`. Internal asset paths still determine the exact map revision.', '',
+        '`R21g1v1Maps.big`. The `compatibility_code` selects candidates, then Tacitus checks '
+        'the actual compiled MapMetaData value against replay `MC`. '
+        'Original R2–R7 packages without separate scripts use stock scripts only with '
+        'an inspected, SHA-256-pinned exception. '
+        '[Measured catalogue coverage](replay-content-coverage.md) separates verified '
+        'content from remaining missing requirements.', '',
         'Installer support covers ZIPs containing BIG files, ANSI/Unicode solid LZMA NSIS, '
         'Unicode non-solid DEFLATE NSIS, and Unicode chunked LZMA NSISBI. '
         'Other installer layouts fail without being executed. '
         'Not every historical pack listed here has been fully extracted or replay-tested.', '',
+        '## Recovered original packs', '',
+        'R15 standard and Predatore bundles were recovered from Command Post public storage; '
+        'their beta labels contain the exact `__15` assets. R20 registry records contain '
+        '`__20a`, and R21c packages contain `__21b`; these mappings are recorded explicitly. '
+        'R18d and R18e both use `__18` paths, distinguished by MC values `2B` and `2C`. '
+        'Early `1.02+ edition` maps are likewise distinguished by compiled MC, never '
+        'by display name alone. The website Arcade F03 source contains exact `__r21h` '
+        'assets with MC `5` and its own scripts.', '',
         '## R16', '',
         'Command Post labels this release **R16 Beta**. Its actual map assets use the '
         '`__16` suffix recorded by R16 replays. The three verified standard pack records '

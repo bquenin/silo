@@ -513,10 +513,10 @@ fn records(header: &[u8], revision: &str) -> Result<BTreeMap<String, u64>> {
             11 if u32_at(header, at + 8)? != 0 => {
                 let directory =
                     string_at(header, strings, languages, u32_at(header, at + 4)?, unicode)?;
-                in_patch = directory
-                    .replace('/', "\\")
-                    .to_ascii_lowercase()
-                    .ends_with("\\patch103");
+                let directory = directory.replace('/', "\\").to_ascii_lowercase();
+                let directory = directory.trim_end_matches('\\');
+                in_patch = directory.ends_with("\\patch103")
+                    || directory.ends_with("\\patch103\\arcademappack");
             }
             20 if in_patch => {
                 let name = string_at(header, strings, languages, u32_at(header, at + 8)?, unicode)?;
@@ -1038,6 +1038,25 @@ mod tests {
         assert!(records(&header, "R24g").is_err());
         assert!(!wanted("R24j1v1Maps.big", "R24g"));
         assert!(!wanted("C:102scripts.big", "R24g"));
+    }
+
+    #[test]
+    fn arcade_subfolder_and_trailing_separators_preserve_allowlisted_content() {
+        for directory in ["$INSTDIR\\Patch103\\", "$INSTDIR\\Patch103\\ArcadeMapPack"] {
+            let mut header = header();
+            let strings = u32_at(&header, 28).unwrap() as usize;
+            let offset = (header.len() - strings) as u32 / 2;
+            for unit in directory.encode_utf16().chain([0]) {
+                header.extend(unit.to_le_bytes());
+            }
+            let end = header.len() as u32;
+            header[36..40].copy_from_slice(&end.to_le_bytes());
+            header[64..68].copy_from_slice(&offset.to_le_bytes());
+            assert_eq!(
+                records(&header, "R24g").unwrap(),
+                BTreeMap::from([("102texturefix.big".into(), 8)])
+            );
+        }
     }
 
     #[test]

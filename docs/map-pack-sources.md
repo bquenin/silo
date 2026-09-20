@@ -1,6 +1,6 @@
 # Historical map pack sources
 
-Checked 2026-09-19. **460 distinct source links**, including **380 public ZIP downloads whose headers were verified**. Command Post was queried for 402 registered pack versions.
+Checked 2026-09-20. **462 distinct source links**, including **382 public ZIP downloads whose headers were verified**. The catalogue records 403 pack versions and verified additions.
 
 A header check confirms that a public URL returned ZIP bytes; it does not validate the whole archive or prove replay compatibility. Unavailable links remain in the catalogue as research leads. Login pages and transient failures are not proof that a pack no longer exists.
 
@@ -8,13 +8,17 @@ A header check confirms that a public URL returned ZIP bytes; it does not valida
 
 ## Source order in Tacitus
 
-Tacitus checks installed and cached content first. For each likely map category, it tries verified public links from Command Post before the exact-version list on kaneswrath.com. A failed download or extraction advances to the fallback. It never substitutes another revision. Test releases and alternate pack families are recorded here but excluded from automatic selection.
+Tacitus checks installed and cached content first. For each likely map category, it tries verified public links from Command Post before the exact-version list on kaneswrath.com. A failed download or extraction advances to the fallback. It never accepts a candidate only when its full internal map path and compiled compatibility value match the replay. Provider labels can differ from internal suffixes. Unverified test releases and pack families remain excluded.
 
-The catalogue embeds only shareable URLs. Downloading these files does not require a Command Post account. The discovery registry itself uses a Command Post session; credentials and session-bound download URLs are excluded.
+The catalogue embeds only shareable URLs. Automatic candidates must be public. Some R19 packs were recovered through Command Post managed downloads and verified against its archive checksums; their restricted links remain excluded from automatic downloads. Supplied ZIPs can be imported using `tacitus-cli cache-pack`. Credentials and session-bound download URLs are excluded.
 
-Metadata provenance: [Command Post public metadata ZIP](https://corefiles1.s3.eu-central-1.amazonaws.com/metadata.zip) and the Command Post `fetch_files.php` registry, queried by exact `metapack_name` and `meta_version_id`. The version identifier also supplies the map archive name: for example R20e uses `R201v1Maps.big`, while R21h uses `R21g1v1Maps.big`. Internal asset paths still determine the exact map revision.
+Metadata provenance: [Command Post public metadata ZIP](https://corefiles1.s3.eu-central-1.amazonaws.com/metadata.zip) and the Command Post `fetch_files.php` registry, queried by exact `metapack_name` and `meta_version_id`. The version identifier also supplies the map archive name: for example R20e uses `R201v1Maps.big`, while R21h uses `R21g1v1Maps.big`. The `compatibility_code` selects candidates, then Tacitus checks the actual compiled MapMetaData value against replay `MC`. Original R2–R7 packages without separate scripts use stock scripts only with an inspected, SHA-256-pinned exception. [Measured catalogue coverage](replay-content-coverage.md) separates verified content from remaining missing requirements.
 
 Installer support covers ZIPs containing BIG files, ANSI/Unicode solid LZMA NSIS, Unicode non-solid DEFLATE NSIS, and Unicode chunked LZMA NSISBI. Other installer layouts fail without being executed. Not every historical pack listed here has been fully extracted or replay-tested.
+
+## Recovered original packs
+
+R15 standard and Predatore bundles were recovered from Command Post public storage; their beta labels contain the exact `__15` assets. R20 registry records contain `__20a`, and R21c packages contain `__21b`; these mappings are recorded explicitly. R18d and R18e both use `__18` paths, distinguished by MC values `2B` and `2C`. Early `1.02+ edition` maps are likewise distinguished by compiled MC, never by display name alone. The website Arcade F03 source contains exact `__r21h` assets with MC `5` and its own scripts.
 
 ## R16
 
@@ -106,12 +110,12 @@ The 1v1 ZIP SHA-256 is `7c0ab9ddfd58cd5b44b134a19eea01ff6b3fa90d2e232dab033d46ed
 | R19b (test) | 1v1 | [Download](https://drive.google.com/file/d/1odkeOFRgMes4AVqI9pavitzR5VoI2fIc/view?usp=sharing) | No ZIP returned |
 | R19c (test) | 1v1 | [Download](https://drive.google.com/file/d/18Es2UpZjRnbxDB2h-7h9FihuKyQVqj2c/view?usp=sharing) | HTTP 404 |
 | R19d (test) | 1v1 | [Download](https://drive.google.com/file/d/1rv3Rz7cx_jKOtF2aR6ayOp54MD2Qsenh/view?usp=sharing) | No ZIP returned |
-| R19e | 1v1 | [Download](https://drive.google.com/file/d/1SgQYqZJNkPXUT3GT9Zis0yb_w8NKj46t/view?usp=sharing) | No ZIP returned |
-| R19f | 1v1 | [Download](https://drive.google.com/file/d/1252O2D6zc7s1If7uHXAFN8V3PhRSpoXK/view?usp=sharing) | No ZIP returned |
-| R19g | 1v1 | [Download](https://drive.google.com/file/d/1nF1XPm1YT9L8kJ7ZyYxCpTrQExBGm7_B/view?usp=sharing) | No ZIP returned |
+| R19e | 1v1 | [Download](https://drive.google.com/file/d/1SgQYqZJNkPXUT3GT9Zis0yb_w8NKj46t/view?usp=sharing) | Full managed download verified; login required |
+| R19f | 1v1 | [Download](https://drive.google.com/file/d/1252O2D6zc7s1If7uHXAFN8V3PhRSpoXK/view?usp=sharing) | Full managed download verified; login required |
+| R19g | 1v1 | [Download](https://drive.google.com/file/d/1nF1XPm1YT9L8kJ7ZyYxCpTrQExBGm7_B/view?usp=sharing) | Full managed download verified; login required |
 | R19h | 1v1 | [Download](https://mega.nz/file/hf0ijBhA#Y4_XMwwxfvSV543T_BjUWN5OHEIRkMkvBN3OxNBNXOo) | No ZIP returned |
 | R19i (test) | 1v1 | [Download](https://drive.google.com/file/d/1ZGiD7op1l2uRyyVtDaboLwrj6h_locxi/view?usp=share_link) | HTTP 404 |
-| R19j | 1v1 | [Download](https://drive.google.com/file/d/1Z0ymHPsGdzrPmXmEKh2zjZqVgF11UF3F/view?usp=sharing) | No ZIP returned |
+| R19j | 1v1 | [Download](https://drive.google.com/file/d/1Z0ymHPsGdzrPmXmEKh2zjZqVgF11UF3F/view?usp=sharing) | Full managed download verified; login required |
 | R20 | 1v1 | [Download](https://drive.google.com/file/d/1lMGI4WpL1OuLqclMofAm4MBmhKjN1R_O/view?usp=sharing) | ZIP header verified |
 | R20b | 1v1 | [Download](https://drive.google.com/file/d/1yFUohrA-sJ8TjVX3qj2qwYGTCe5sVuuo/view?usp=sharing) | ZIP header verified |
 | R20c | 1v1 | [Download](https://drive.google.com/file/d/1b3U0_coU00xUkly6oJBrhVzGNk6YjweW/view?usp=sharing) | HTTP 404 |
@@ -120,6 +124,7 @@ The 1v1 ZIP SHA-256 is `7c0ab9ddfd58cd5b44b134a19eea01ff6b3fa90d2e232dab033d46ed
 | R21 | 1v1 | [Download](https://drive.google.com/file/d/1FGEVrdlzkY5ppjUClLU0a6ka8jkWZBIZ/view?usp=share_link) | HTTP 404 |
 | R21b | 1v1 | [Download](https://drive.google.com/file/d/1t6F7b1oU9EhfpnIr8GUGaWM07abQnMHb/view?usp=drive_link) | ZIP header verified |
 | R21c | 1v1 | [Download](https://drive.google.com/file/d/1lCgrcM6EF7U1rTgAajc1e-6d1tEDUzX-/view?usp=drive_link) | HTTP 404 |
+| R21c | 1v1 | [Download](https://kaneswrath.com/?yh_download_id=13880&attachment_id=13890) | ZIP header verified |
 | R21d | 1v1 | [Download](https://drive.google.com/file/d/1SKGzPzpz3J4J75-ftsdormejQ-6TYl2k/view?usp=drive_link) | ZIP header verified |
 | R21e | 1v1 | [Download](https://drive.google.com/file/d/1P6nyRxV5rYmjLn9Jdao5WGLVyyNvjcfv/view?usp=drive_link) | ZIP header verified |
 | R21f (Hotfix) | 1v1 | [Download](https://drive.google.com/file/d/1aRKFjzcxrnnIkKIEvJ8JrMMy9ywq4cbr/view?usp=drive_link) | HTTP 404 |
@@ -195,9 +200,9 @@ The 1v1 ZIP SHA-256 is `7c0ab9ddfd58cd5b44b134a19eea01ff6b3fa90d2e232dab033d46ed
 | R19d (test) | 2v2 | [Download](https://drive.google.com/file/d/1m01SeK_kA7-b1qNf7D03GCk8N_hxfzdQ/view?usp=sharing) | No ZIP returned |
 | R19e | 2v2 | [Download](https://drive.google.com/file/d/1E7TZhCr01zt3JIhMAAxUAUHXPWcNv2al/view?usp=sharing) | No ZIP returned |
 | R19f | 2v2 | [Download](https://drive.google.com/file/d/14K7RIeS1czYfB_Mg7-Ac0HeSQ_RtRFaQ/view?usp=sharing) | No ZIP returned |
-| R19g | 2v2 | [Download](https://drive.google.com/file/d/1G79_X5d7ZvUtsydXY6evlT3DVc4Q2HBO/view?usp=sharing) | No ZIP returned |
+| R19g | 2v2 | [Download](https://drive.google.com/file/d/1G79_X5d7ZvUtsydXY6evlT3DVc4Q2HBO/view?usp=sharing) | Full managed download verified; login required |
 | R19i (test) | 2v2 | [Download](https://drive.google.com/file/d/1VfIrLdXfzNRKZqvPLfpinzLYYeUPGKfG/view?usp=share_link) | HTTP 404 |
-| R19j | 2v2 | [Download](https://drive.google.com/file/d/1kAe3Y1aEccWXaC6mmpFtl950oViLnqU7/view?usp=share_link) | No ZIP returned |
+| R19j | 2v2 | [Download](https://drive.google.com/file/d/1kAe3Y1aEccWXaC6mmpFtl950oViLnqU7/view?usp=share_link) | Full managed download verified; login required |
 | R20 | 2v2 | [Download](https://drive.google.com/file/d/1HYP5rwX1LqMhgZral82qOt15WPrtK-Ko/view?usp=share_link) | ZIP header verified |
 | R20b | 2v2 | [Download](https://drive.google.com/file/d/1nP2LTE4B8O5Jg_p37jQEi4NG9IKgEusL/view?usp=share_link) | ZIP header verified |
 | R20c | 2v2 | [Download](https://drive.google.com/file/d/10ZlCBpOO3mbdHNoHE9iQhwhJzefmqQkV/view?usp=sharing) | HTTP 404 |
@@ -206,6 +211,7 @@ The 1v1 ZIP SHA-256 is `7c0ab9ddfd58cd5b44b134a19eea01ff6b3fa90d2e232dab033d46ed
 | R21 | 2v2 | [Download](https://drive.google.com/file/d/1qGD77hGpf5CbORj1UrvG6aFMYTlQHdL3/view?usp=share_link) | HTTP 404 |
 | R21b | 2v2 | [Download](https://drive.google.com/file/d/174Tkx0NuNtDiJKK8h3HgvozVHRh5bYGV/view?usp=share_link) | ZIP header verified |
 | R21c | 2v2 | [Download](https://drive.google.com/file/d/1oVuKct4lma6H3CFNfeRnzTOJb1dxrtpo/view?usp=drive_link) | HTTP 404 |
+| R21c | 2v2 | [Download](https://kaneswrath.com/?yh_download_id=13895&attachment_id=13898) | ZIP header verified |
 | R21d | 2v2 | [Download](https://drive.google.com/file/d/1GvMnZRY0HYu0rdvgFYjKK6W4skfwtwuz/view?usp=drive_link) | ZIP header verified |
 | R21e | 2v2 | [Download](https://drive.google.com/file/d/1pwT8UBaOhgRgN-7KSKYUIDgSHjNDwIhh/view?usp=drive_link) | ZIP header verified |
 | R21f (Hotfix) | 2v2 | [Download](https://drive.google.com/file/d/1684t2iodKDkGkbSwqlvey76QtnIb2XiS/view?usp=drive_link) | ZIP header verified |
@@ -248,6 +254,7 @@ The 1v1 ZIP SHA-256 is `7c0ab9ddfd58cd5b44b134a19eea01ff6b3fa90d2e232dab033d46ed
 | R13c | Predatore 2 | [Download](http://app-direct.net/production/public/files/1.02%2B/R13c/KWCommunityPatch102PlusMapsA_R13.zip) | HTTP 404 |
 | R13d | Predatore 2 | [Download](http://app-direct.net/production/public/files/1.02%2B/R13d/KWCommunityPatch102PlusMapsA_R13.zip) | HTTP 404 |
 | R14 | Predatore 2 | [Download](https://cgf-uploads.fra1.cdn.digitaloceanspaces.com/files/1.02+/R14/KWCommunityPatch102PlusMapsA_R14.zip) | ZIP header verified |
+| R15 Beta | Predatore 2 | [Download](https://cgf-uploads.fra1.cdn.digitaloceanspaces.com/files/1.02+/R15/KWCommunityPatch102PlusMapsA_R15.zip) | ZIP header verified |
 | R8 | 4v4 | [Download](https://cgf-uploads.fra1.cdn.digitaloceanspaces.com/files/1.02+/R8/KWCommunityPatch102PlusMaps3_R8.zip) | ZIP header verified |
 | R9 | 4v4 | [Download](https://cgf-uploads.fra1.cdn.digitaloceanspaces.com/files/1.02+/R9/KWCommunityPatch102PlusMaps3_R9.zip) | ZIP header verified |
 | R10 | 4v4 | [Download](https://cgf-uploads.fra1.cdn.digitaloceanspaces.com/files/1.02+/R10/KWCommunityPatch102PlusMaps3_R10C.zip) | ZIP header verified |
@@ -263,6 +270,7 @@ The 1v1 ZIP SHA-256 is `7c0ab9ddfd58cd5b44b134a19eea01ff6b3fa90d2e232dab033d46ed
 | R13d | 4v4 | [Download](http://app-direct.net/production/public/files/1.02%2B/R13d/KWCommunityPatch102PlusMaps_R13.zip) | HTTP 404 |
 | R14 | 4v4 | [Download](http://app-direct.net/production/public/files/1.02+/R14/KWCommunityPatch102PlusMaps_R14.zip) | HTTP 404 |
 | R14 Beta 2 (test) | 4v4 | [Download](http://app-direct.net/production/public/files/1.02+/R14/KWCommunityPatch102PlusMaps_R14_TEST.zip) | HTTP 404 |
+| R15 Beta | 4v4 | [Download](https://cgf-uploads.fra1.cdn.digitaloceanspaces.com/files/1.02+/R15/KWCommunityPatch102PlusMaps_R15.zip) | ZIP header verified |
 | R16 Beta | 4v4 | [Download](https://cgf-uploads.fra1.cdn.digitaloceanspaces.com/files/1.02+/R16%20Beta/KWCommunityPatch102PlusMaps3_R16.zip) | ZIP header verified |
 | R18 | 4v4 | [Download](https://cgf-uploads.fra1.cdn.digitaloceanspaces.com/files/1.02+/R18/KWCommunityPatch102PlusMaps3_R18.zip) | ZIP header verified |
 | R18c (test) | 4v4 | [Download](https://cgf-uploads.fra1.cdn.digitaloceanspaces.com/files/1.02+/R18c/KWCommunityPatch102PlusMaps3_R18c.zip) | ZIP header verified |
@@ -271,11 +279,11 @@ The 1v1 ZIP SHA-256 is `7c0ab9ddfd58cd5b44b134a19eea01ff6b3fa90d2e232dab033d46ed
 | R18f | 4v4 | [Download](https://cgf-uploads.fra1.cdn.digitaloceanspaces.com/files/1.02+/R18f/KWCommunityPatch102PlusMaps3_R18f.zip) | ZIP header verified |
 | R18f | 4v4 | [Download](https://cgf-uploads.fra1.cdn.digitaloceanspaces.com/files/1.02+/R18d/KWCommunityPatch102PlusMaps3_R18d.zip) | Wrong revision (excluded) |
 | R19d (test) | 4v4 | [Download](https://drive.google.com/file/d/1ipODOFADCIHZBG6BxEgL8Fet02_mjEiH/view?usp=sharing) | No ZIP returned |
-| R19e | 4v4 | [Download](https://drive.google.com/file/d/1aHd447ffh7K5s_MoiP3WF8iKpYZxby92/view?usp=sharing) | No ZIP returned |
+| R19e | 4v4 | [Download](https://drive.google.com/file/d/1aHd447ffh7K5s_MoiP3WF8iKpYZxby92/view?usp=sharing) | Full managed download verified; login required |
 | R19f | 4v4 | [Download](https://drive.google.com/file/d/1dxFL1_03ozpS6nEE8EJgslGJvmTar4i3/view?usp=sharing) | No ZIP returned |
-| R19g | 4v4 | [Download](https://drive.google.com/file/d/1_k73Zmg0DuZUAKf8ZrqlKJX5fU-kutBb/view?usp=sharing) | No ZIP returned |
+| R19g | 4v4 | [Download](https://drive.google.com/file/d/1_k73Zmg0DuZUAKf8ZrqlKJX5fU-kutBb/view?usp=sharing) | Full managed download verified; login required |
 | R19i (test) | 4v4 | [Download](https://drive.google.com/file/d/1ZcyQJUiQiUkrnOSYxOUbDYvvomnp84pc/view?usp=share_link) | HTTP 404 |
-| R19j | 4v4 | [Download](https://drive.google.com/file/d/1Qgh3LtM9n4fGVUciSWnOaazOKHezNARM/view?usp=share_link) | No ZIP returned |
+| R19j | 4v4 | [Download](https://drive.google.com/file/d/1Qgh3LtM9n4fGVUciSWnOaazOKHezNARM/view?usp=share_link) | Full managed download verified; login required |
 | R20 | 4v4 | [Download](https://drive.google.com/file/d/10HO9EdHm4m1myvsK_0M0gOiWoAelrY5G/view?usp=share_link) | ZIP header verified |
 | R20b | 4v4 | [Download](https://drive.google.com/file/d/1nnHsQH7PGPjqHHMx2jaiPXw8rH03F8zk/view?usp=share_link) | ZIP header verified |
 | R20c | 4v4 | [Download](https://drive.google.com/file/d/1cnD1qdRvlBWm9H0blRF2-U822jFPr0VQ/view?usp=sharing) | HTTP 404 |
@@ -325,10 +333,12 @@ The 1v1 ZIP SHA-256 is `7c0ab9ddfd58cd5b44b134a19eea01ff6b3fa90d2e232dab033d46ed
 | R13c | Predatore 3 | [Download](http://app-direct.net/production/public/files/1.02%2B/R13c/KWCommunityPatch102PlusMapsA_R13.zip) | HTTP 404 |
 | R13d | Predatore 3 | [Download](http://app-direct.net/production/public/files/1.02%2B/R13d/KWCommunityPatch102PlusMapsA_R13.zip) | HTTP 404 |
 | R14 | Predatore 3 | [Download](http://app-direct.net/production/public/files/1.02+/R14/KWCommunityPatch102PlusMapsA_R14.zip) | HTTP 404 |
+| R15 Beta | Predatore 3 | [Download](https://cgf-uploads.fra1.cdn.digitaloceanspaces.com/files/1.02+/R15/KWCommunityPatch102PlusMapsA_R15.zip) | ZIP header verified |
 | R11 | Pack 4 | [Download](http://app-direct.net/production/public/files/1.02+/R11/KWCommunityPatch102PlusMaps4_R11.zip) | HTTP 404 |
 | R13c | Predatore 1 | [Download](http://app-direct.net/production/public/files/1.02%2B/R13c/KWCommunityPatch102PlusMapsA_R13.zip) | HTTP 404 |
 | R13d | Predatore 1 | [Download](http://app-direct.net/production/public/files/1.02%2B/R13d/KWCommunityPatch102PlusMapsA_R13.zip) | HTTP 404 |
 | R14 | Predatore 1 | [Download](http://app-direct.net/production/public/files/1.02+/R14/KWCommunityPatch102PlusMapsA_R14.zip) | HTTP 404 |
+| R15 Beta | Predatore 1 | [Download](https://cgf-uploads.fra1.cdn.digitaloceanspaces.com/files/1.02+/R15/KWCommunityPatch102PlusMapsA_R15.zip) | ZIP header verified |
 | F01 | arcademappack | [Download](https://kaneswrath.com/downloads/download/Arcade_R20c.zip) | HTTP 404 |
 | F01e | arcademappack | [Download](https://kaneswrath.com/downloads/download/Arcade_R20e.zip) | HTTP 404 |
 | F02 | arcademappack | [Download](https://kaneswrath.com/wp-content/uploads/download-manager-files/Arcade_R21c.zip) | HTTP 404 |
@@ -376,6 +386,7 @@ The 1v1 ZIP SHA-256 is `7c0ab9ddfd58cd5b44b134a19eea01ff6b3fa90d2e232dab033d46ed
 | R21l | neonbankaimaps3 | [Download](https://drive.google.com/file/d/19u5rK66YxbTa1osEuMe9ttq2jExnpBjw/view?usp=sharing) | ZIP header verified |
 | R21m | neonbankaimaps3 | [Download](https://drive.google.com/file/d/1gqknAoqStTSQPzxWppMr4A8icvwXXjHW/view?usp=sharing) | ZIP header verified |
 | R22n | neonbankaimaps3 | [Download](https://drive.google.com/file/d/1EbqaKVdJC4pAQe9Xd-0VtrY4b3JHEoPN/view?usp=sharing) | ZIP header verified |
+| F03 (R21h) | arcade | [Download](https://kaneswrath.com/?yh_download_id=13851&attachment_id=13856) | ZIP header verified |
 
 ## Website mirrors
 

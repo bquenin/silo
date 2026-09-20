@@ -2,12 +2,34 @@
 //! Only the bounded directory is read; multi-gigabyte map payloads stay on disk.
 
 use std::fs::File;
-use std::io::{BufReader, Read};
+use std::io::{BufReader, Read, Seek, SeekFrom};
 use std::path::Path;
 
 use anyhow::{bail, ensure, Context, Result};
 
+pub struct Entry {
+    pub name: String,
+    pub offset: u64,
+    pub size: u64,
+}
+
 pub fn entries(path: &Path) -> Result<Vec<String>> {
+    Ok(index(path)?.into_iter().map(|entry| entry.name).collect())
+}
+
+pub fn read_entry(path: &Path, entry: &Entry, limit: u64) -> Result<Vec<u8>> {
+    ensure!(
+        entry.size <= limit,
+        "Archive metadata exceeds its size limit"
+    );
+    let mut file = File::open(path)?;
+    file.seek(SeekFrom::Start(entry.offset))?;
+    let mut bytes = vec![0; entry.size as usize];
+    file.read_exact(&mut bytes)?;
+    Ok(bytes)
+}
+
+pub fn index(path: &Path) -> Result<Vec<Entry>> {
     let file = File::open(path)?;
     let file_size = file.metadata()?.len();
     let mut reader = BufReader::new(file);
@@ -55,7 +77,11 @@ pub fn entries(path: &Path) -> Result<Vec<String>> {
             name.push(char::from(byte[0]));
         }
         if size > 0 {
-            result.push(normalize(&name));
+            result.push(Entry {
+                name: normalize(&name),
+                offset,
+                size,
+            });
         }
     }
     Ok(result)

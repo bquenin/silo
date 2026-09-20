@@ -5,8 +5,10 @@ mod archive;
 pub mod automatic;
 mod config;
 mod content;
+mod custom;
 mod download;
 mod installation;
+mod metadata;
 mod package;
 mod selection;
 mod sources;
@@ -95,7 +97,7 @@ fn map_asset(raw: &str) -> Option<(String, Option<String>)> {
     } else {
         &path
     };
-    if !path.starts_with("data/maps/official/")
+    if !(path.starts_with("data/maps/official/") || path.starts_with("data/maps/internal/"))
         || path
             .split('/')
             .any(|s| s.is_empty() || s == ".." || s == ".")
@@ -108,7 +110,13 @@ fn map_asset(raw: &str) -> Option<(String, Option<String>)> {
         .rsplit_once("__")
         .map(|(_, r)| r)
         .filter(|r| !r.is_empty() && r.bytes().all(|b| b.is_ascii_alphanumeric()))
-        .map(|r| format!("R{r}"));
+        .map(|r| {
+            let r = r
+                .strip_prefix('r')
+                .filter(|s| s.starts_with(|c: char| c.is_ascii_digit()))
+                .unwrap_or(r);
+            format!("R{r}")
+        });
     Some((format!("{directory}/{name}.map"), revision))
 }
 

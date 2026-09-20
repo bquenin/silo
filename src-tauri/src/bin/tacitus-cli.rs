@@ -86,6 +86,7 @@ fn run(args: &[String]) -> Result<()> {
         "parse" => cmd_parse(&rest, json),
         "stats" => cmd_stats(&db_path, json),
         "check" | "play" | "prepare" => cmd_playback(&db_path, &rest, json, &subcmd),
+        "cache-pack" => cmd_cache_pack(&db_path, &rest),
         "backfill-duration" => cmd_backfill_duration(&db_path, json),
         other => Err(anyhow!("unknown subcommand: {}", other)),
     }
@@ -110,6 +111,8 @@ SUBCOMMANDS:
     check ID [--game DIR] Inspect replay content without downloading
     play ID [--game DIR]  Prepare missing content and launch the replay
     prepare ID           Prepare a temporary launch plan without starting KW
+    cache-pack ID ZIP --source URL --sha256 HASH
+                         Verify and cache a supplied package for this replay
 
 Playback options:
     --game DIR          Override the detected/saved game folder
@@ -164,6 +167,59 @@ fn cmd_import(db_path: &PathBuf, rest: &[&str], json: bool) -> Result<()> {
             report.errors.len()
         ));
     }
+    Ok(())
+}
+
+fn cmd_cache_pack(db_path: &PathBuf, rest: &[&str]) -> Result<()> {
+    use tacitus_lib::playback::automatic;
+    let id = rest
+        .first()
+        .context("cache-pack needs a replay ID")?
+        .parse::<i64>()?;
+    let package = PathBuf::from(rest.get(1).context("cache-pack needs a ZIP path")?);
+    let mut cache = automatic::cache_root();
+    let mut source = None;
+    let mut hash = None;
+    let mut i = 2;
+    while i < rest.len() {
+        let flag = rest[i];
+        let value = *rest.get(i + 1).context("cache-pack option needs a value")?;
+        match flag {
+            "--cache" => cache = PathBuf::from(value),
+            "--source" => source = Some(value),
+            "--sha256" => hash = Some(value),
+            _ => return Err(anyhow!("unknown cache-pack option: {flag}")),
+        }
+        i += 2;
+    }
+    let target = Db::open(db_path)?.replay_target(id)?;
+    let cancelled = automatic::Cancellation::default();
+    let control = automatic::Control {
+        cancelled: &cancelled,
+        progress: &|event| {
+            eprintln!(
+                "{} {}{}",
+                event.message,
+                event.completed,
+                event
+                    .total
+                    .map(|n| format!("/{n} bytes"))
+                    .unwrap_or_default()
+            )
+        },
+    };
+    let directory = automatic::import_package(
+        &target,
+        &cache,
+        &package,
+        source.context("cache-pack requires --source URL")?,
+        hash.context("cache-pack requires --sha256 HASH")?,
+        &control,
+    )?;
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&serde_json::json!({"package": directory}))?
+    );
     Ok(())
 }
 

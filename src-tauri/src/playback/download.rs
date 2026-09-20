@@ -2,7 +2,7 @@
 //! downloaded executables are never run.
 use std::fs::{self, File};
 use std::io::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use anyhow::{bail, ensure, Context, Result};
@@ -31,7 +31,7 @@ fn version_url(html: &str, revision: &str) -> Result<Option<Url>> {
     let row = Regex::new(r#"(?s)<li\b[^>]*class="[^"]*\byh_version-item\b[^"]*"[^>]*>(.*?)</li>"#)?;
     let filename = Regex::new(r#"data-full="([^"]+)""#)?;
     let expected_name = Regex::new(&format!(
-        r"(?i)^{}[-_](1vs1|2vs2|4vs4|4v4|legacy|all-in-one)[-_]map[-_]pack\.zip$",
+        r"(?i)^{}[-_](1vs1|2vs2|4vs4|4v4|legacy|all-in-one)[-_]map[-_]pack(?:-[1-9][0-9]*)?\.zip$",
         regex::escape(revision)
     ))?;
     let link = Regex::new(r#"href="([^"]*yh_download_id=[^"]+)""#)?;
@@ -205,16 +205,101 @@ fn cleanup_staging(stages: &Path) -> Result<()> {
     Ok(())
 }
 
+/// Import an archive obtained through a managed source, such as Command Post.
+/// The caller supplies the verified transfer digest and the replay's exact
+/// requirement. Keep the original package and never execute its installer.
+pub fn import_package(
+    cache: &Path,
+    package: &Path,
+    asset: &str,
+    revision: &str,
+    crc: u32,
+    source: &str,
+    expected_sha256: &str,
+    control: &Control<'_>,
+) -> Result<PathBuf> {
+    ensure!(
+        expected_sha256.len() == 64 && expected_sha256.bytes().all(|b| b.is_ascii_hexdigit()),
+        "A verified SHA-256 digest is required to import a map package."
+    );
+    let source_url = Url::parse(source)?;
+    ensure!(
+        source_url.scheme() == "https"
+            && source_url.username().is_empty()
+            && source_url.password().is_none()
+            && source_url.query_pairs().all(|(key, _)| {
+                ![
+                    "token",
+                    "access_token",
+                    "password",
+                    "username",
+                    "authorization",
+                    "signature",
+                ]
+                .contains(&key.to_ascii_lowercase().as_str())
+                    && !key.to_ascii_lowercase().starts_with("x-amz-")
+            }),
+        "Use the shareable HTTPS source URL, without download credentials."
+    );
+    let _cache_lock = lock_cache(cache)?;
+    let stages = cache.join("staging");
+    fs::create_dir_all(&stages)?;
+    cleanup_staging(&stages)?;
+    let stage = tempfile::Builder::new()
+        .prefix("download-")
+        .tempdir_in(&stages)?;
+    fs::write(stage.path().join("tacitus-download"), "1\n")?;
+    control.stage("verifying", "Verifying the supplied map package…")?;
+    ensure!(
+        fs::metadata(package)?.len() <= MAX_PACKAGE_BYTES,
+        "The map package exceeds the supported size."
+    );
+    let hash = content::hash_file(package, control)?.0;
+    ensure!(
+        hash.eq_ignore_ascii_case(expected_sha256),
+        "The supplied map package does not match its verified SHA-256 digest."
+    );
+    let output = super::package::unpack(
+        package,
+        stage.path(),
+        revision,
+        "supplied map pack",
+        control,
+    )?;
+    // Check the BIG index before publication; a similarly named map or another
+    // revision cannot turn a failed import into a persistent cache entry.
+    let mut found = false;
+    for entry in fs::read_dir(&output)? {
+        let path = entry?.path();
+        if super::archive::entries(&path)?
+            .iter()
+            .any(|entry| entry == asset)
+        {
+            ensure!(
+                super::metadata::matches(&path, asset, crc)?,
+                "The supplied package has a conflicting map compatibility value."
+            );
+            found = true;
+        }
+    }
+    ensure!(
+        found,
+        "The supplied package does not contain the replay's exact map asset and compatibility value."
+    );
+    content::publish(&output, cache, revision, source, &hash, control)
+}
+
 pub fn acquire(
     cache: &Path,
     asset: &str,
-    revision: &str,
+    revision: Option<&str>,
+    crc: u32,
     sources: &[String],
     control: &Control<'_>,
 ) -> Result<()> {
     ensure!(
-        supported(revision),
-        "Tacitus has no verified automatic download source for map version {revision}."
+        sources::supports_compatibility(revision, crc) || revision.is_some_and(supported),
+        "Tacitus has no verified automatic download source for this map's compatibility value {crc:X}."
     );
     control.check()?;
     let _cache_lock = lock_cache(cache)?;
@@ -226,21 +311,20 @@ pub fn acquire(
     fs::create_dir_all(&stages)?;
     cleanup_staging(&stages)?;
     let mut failures = Vec::new();
-    'packs: for source_page in sources {
+    for source_page in sources {
         let label = super::selection::pack_label(source_page);
-        control.stage(
-            "locating",
-            format!("Finding the exact {revision} map pack…"),
-        )?;
+        control.stage("locating", "Finding the exact map pack for this replay…")?;
         // Preserve category ordering (a 1v1 pack before a multi-player pack),
         // while preferring Command Post's verified links within each category.
         if let Some(kind) = super::selection::PackKind::from_page(source_page) {
-            for candidate in sources::command_post(revision, kind) {
+            for candidate in sources::compatible(revision, crc, kind) {
                 match acquire_from(
-                    cache, &stages, asset, revision, label, &candidate, &runtime, &client, control,
+                    cache, &stages, asset, crc, label, &candidate, &runtime, &client, control,
                 ) {
                     Ok(true) => return Ok(()),
-                    Ok(false) => continue 'packs,
+                    // Registry mirrors can contain the wrong pack despite
+                    // their label. Try the remaining exact-version sources.
+                    Ok(false) => {}
                     Err(error) => {
                         control.check()?;
                         failures.push(format!("{}: {error:#}", candidate.source));
@@ -248,6 +332,9 @@ pub fn acquire(
                 }
             }
         }
+        // Unversioned community maps are selected through their registry code
+        // and exact compiled metadata, never the latest website download.
+        let Some(revision) = revision else { continue };
         let html = match runtime.block_on(page(&client, source_page, control)) {
             Ok(Some(html)) => html,
             Ok(None) => continue,
@@ -268,9 +355,10 @@ pub fn acquire(
         let candidate = sources::Candidate {
             source: url.to_string(),
             url,
+            revision: revision.into(),
         };
         match acquire_from(
-            cache, &stages, asset, revision, label, &candidate, &runtime, &client, control,
+            cache, &stages, asset, crc, label, &candidate, &runtime, &client, control,
         ) {
             Ok(true) => return Ok(()),
             Ok(false) => {}
@@ -283,18 +371,18 @@ pub fn acquire(
     control.check()?;
     if !failures.is_empty() {
         bail!(
-            "The exact {revision} map pack could not be prepared from the available sources. Press Play to retry. {}",
+            "The exact map pack could not be prepared from the available sources. Press Play to retry. {}",
             failures.join("; ")
         );
     }
-    bail!("The exact {revision} map and its scripts are not available from the supported download sources.")
+    bail!("The exact map and its matching scripts are not available from the supported download sources (compatibility {crc:X}).")
 }
 
 fn acquire_from(
     cache: &Path,
     stages: &Path,
     asset: &str,
-    revision: &str,
+    crc: u32,
     label: &str,
     candidate: &sources::Candidate,
     runtime: &tokio::runtime::Runtime,
@@ -302,6 +390,7 @@ fn acquire_from(
     control: &Control<'_>,
 ) -> Result<bool> {
     let url = &candidate.url;
+    let revision = &candidate.revision;
     if content::contains_other_map(cache, &candidate.source, revision, asset)? {
         return Ok(false);
     }
@@ -362,7 +451,7 @@ fn acquire_from(
     fs::remove_file(checksum_path)?;
     // Inspect this newly verified package, not an older corrupt cache
     // entry that happens to claim the requested map in its manifest.
-    content::has_asset(&published, asset)
+    content::has_compatible_map(&published, asset, crc)
 }
 
 #[cfg(test)]
@@ -529,6 +618,23 @@ mod tests {
         );
         assert!(version_url(html, "R24").unwrap().is_none());
         assert!(version_url(html, "R24g").unwrap().is_none());
+        // WordPress adds a numeric suffix when an uploaded filename already
+        // exists. R23f and R24 1v1 releases use this form.
+        assert!(
+            version_url(&html.replace("Map-Pack.zip", "Map-Pack-1.zip"), "R24j")
+                .unwrap()
+                .is_some()
+        );
+        assert!(
+            version_url(&html.replace("Map-Pack.zip", "Map-Pack-12.zip"), "R24j")
+                .unwrap()
+                .is_some()
+        );
+        assert!(
+            version_url(&html.replace("Map-Pack.zip", "Map-Pack-1.zip"), "R24")
+                .unwrap()
+                .is_none()
+        );
         assert!(
             version_url(&html.replace("Map-Pack.zip", "Map-Pack-1.03.zip"), "R24j")
                 .unwrap()

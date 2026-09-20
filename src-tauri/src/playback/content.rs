@@ -35,6 +35,7 @@ pub struct Pack {
 
 pub struct Resolved {
     pub archives: Vec<PathBuf>,
+    pub custom_map: Option<PathBuf>,
 }
 
 pub fn hash_file(path: &Path, control: &Control<'_>) -> Result<(String, u64)> {
@@ -82,12 +83,14 @@ fn script_name(name: &str, revision: &str) -> bool {
 }
 
 fn has_scripts(pack: &Pack) -> bool {
-    pack.archives.iter().any(|a| {
-        script_name(&a.name, &pack.revision)
-            && a.entries.iter().any(|e| e == "data/scripts/scripts.lua")
-    })
+    super::sources::uses_base_scripts(&pack.revision, &pack.source, &pack.package_sha256)
+        || pack.archives.iter().any(|a| {
+            script_name(&a.name, &pack.revision)
+                && a.entries.iter().any(|e| e == "data/scripts/scripts.lua")
+        })
 }
 
+#[cfg(test)]
 pub fn has_asset(directory: &Path, asset: &str) -> Result<bool> {
     Ok(manifest(directory)?
         .archives
@@ -95,10 +98,25 @@ pub fn has_asset(directory: &Path, asset: &str) -> Result<bool> {
         .any(|a| a.entries.iter().any(|entry| entry == asset)))
 }
 
+pub fn has_compatible_map(directory: &Path, asset: &str, crc: u32) -> Result<bool> {
+    let mut found = false;
+    for archive in manifest(directory)?.archives {
+        if archive.entries.iter().any(|entry| entry == asset) {
+            // Every mounted copy must agree: an earlier BIG can shadow a
+            // later archive that contains the requested compatibility value.
+            if !super::metadata::matches(&directory.join(archive.name), asset, crc)? {
+                return Ok(false);
+            }
+            found = true;
+        }
+    }
+    Ok(found)
+}
+
 pub fn cached(
     cache: &Path,
     asset: &str,
-    revision: &str,
+    crc: u32,
     verify: bool,
     control: &Control<'_>,
 ) -> Result<Option<Resolved>> {
@@ -117,13 +135,17 @@ pub fn cached(
         let Ok(pack) = manifest(&directory) else {
             continue;
         };
-        if !pack.revision.eq_ignore_ascii_case(revision)
-            || !has_scripts(&pack)
+        if !has_scripts(&pack)
             || !pack
                 .archives
                 .iter()
                 .any(|a| a.entries.iter().any(|e| e == asset))
         {
+            continue;
+        }
+        // Several releases deliberately reuse the same directory suffix.
+        // Read the compiled metadata instead of trusting the cache label.
+        if !has_compatible_map(&directory, asset, crc).unwrap_or(false) {
             continue;
         }
         let mut valid = true;
@@ -151,8 +173,11 @@ pub fn cached(
                 .iter()
                 .map(|a| directory.join(&a.name))
                 .collect();
-            order(&mut archives, revision);
-            return Ok(Some(Resolved { archives }));
+            order(&mut archives, &pack.revision);
+            return Ok(Some(Resolved {
+                archives,
+                custom_map: None,
+            }));
         }
     }
     Ok(None)
@@ -260,25 +285,44 @@ pub fn resolve(
     cache: &Path,
     asset: &str,
     revision: Option<&str>,
+    crc: Option<u32>,
     verify: bool,
     control: &Control<'_>,
 ) -> Result<Option<Resolved>> {
-    if let Some(revision) = revision {
-        if let Some(found) = cached(cache, asset, revision, verify, control)? {
+    if asset.starts_with("data/maps/internal/") {
+        return Ok(super::custom::installed(
+            asset,
+            crc.context("Custom map checksum is missing")?,
+            control,
+        )?
+        .map(|path| Resolved {
+            archives: Vec::new(),
+            custom_map: Some(path),
+        }));
+    }
+    let crc = crc.context("The replay map compatibility value is missing")?;
+    if super::automatic::community_asset(asset) {
+        if let Some(found) = cached(cache, asset, crc, verify, control)? {
             return Ok(Some(found));
         }
     } else {
+        if super::metadata::stock_crc(&game.archives, asset)? != Some(crc) {
+            return Ok(None);
+        }
         for path in &game.archives {
             control.check()?;
             if archive::entries(path)?.iter().any(|e| e == asset) {
                 return Ok(Some(Resolved {
                     archives: Vec::new(),
+                    custom_map: None,
                 }));
             }
         }
         return Ok(None);
     }
-    let revision = revision.unwrap();
+    let Some(revision) = revision else {
+        return Ok(None);
+    };
     // Installed packs can be borrowed without enabling them globally. An
     // unversioned 102Scripts.big alone cannot prove which patch it came from.
     let mut candidates = Vec::new();
@@ -297,7 +341,9 @@ pub fn resolve(
             continue;
         }
         if let Ok(entries) = archive::entries(entry.path()) {
-            if entries.iter().any(|e| e == asset) {
+            if entries.iter().any(|e| e == asset)
+                && super::metadata::matches(entry.path(), asset, crc).unwrap_or(false)
+            {
                 candidates.push(entry.into_path());
             }
         }
@@ -331,7 +377,10 @@ pub fn resolve(
                 }
             }
             order(&mut archives, revision);
-            return Ok(Some(Resolved { archives }));
+            return Ok(Some(Resolved {
+                archives,
+                custom_map: None,
+            }));
         }
     }
     Ok(None)

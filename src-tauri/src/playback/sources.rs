@@ -21,6 +21,12 @@ struct Version {
     #[serde(default)]
     additional_archives: Vec<String>,
     links: Vec<Link>,
+    #[serde(default)]
+    compatibility_code: Option<u32>,
+    #[serde(default)]
+    script_dependency: Option<String>,
+    #[serde(default)]
+    package_sha256: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -64,6 +70,17 @@ pub fn available(revision: &str) -> bool {
     })
 }
 
+/// Earliest original installers predate 102Scripts.big. Only an inspected,
+/// digest-pinned original package may use stock scripts as its dependency.
+pub fn uses_base_scripts(revision: &str, source: &str, sha256: &str) -> bool {
+    catalogue().versions.iter().any(|v| {
+        matches(v, revision)
+            && v.script_dependency.as_deref() == Some("base_game")
+            && v.package_sha256.as_deref() == Some(sha256)
+            && v.links.iter().any(|link| link.url == source)
+    })
+}
+
 /// Some R20e packs still call their archive R201v1Maps.big; R21h uses R21g.
 /// Command Post's exact version metadata supplies these aliases. Selection of
 /// the replay itself still requires its complete internal asset path.
@@ -99,8 +116,10 @@ pub fn complete_map_archives(source: &str, revision: &str, names: &[&str]) -> bo
 pub struct Candidate {
     pub url: Url,
     pub source: String,
+    pub revision: String,
 }
 
+#[cfg(test)]
 pub fn command_post(revision: &str, kind: PackKind) -> Vec<Candidate> {
     catalogue()
         .versions
@@ -111,14 +130,108 @@ pub fn command_post(revision: &str, kind: PackKind) -> Vec<Candidate> {
             Some(Candidate {
                 url: usable(link)?,
                 source: link.url.clone(),
+                revision: revision.into(),
             })
         })
         .collect()
 }
 
+/// Registry codes are the compatibility values compiled into community map
+/// metadata. Codes select candidates; only an exact path AND compiled MC match
+/// can satisfy a replay. Provider release letters are not compatibility proof.
+pub fn compatible(revision: Option<&str>, crc: u32, kind: PackKind) -> Vec<Candidate> {
+    fn major(revision: &str) -> String {
+        revision
+            .trim_start_matches(['r', 'R'])
+            .chars()
+            .take_while(char::is_ascii_digit)
+            .collect()
+    }
+    catalogue()
+        .versions
+        .iter()
+        .filter(|v| {
+            !v.test
+                && v.kind == Some(kind)
+                && v.compatibility_code == Some(crc)
+                && v.revision
+                    .as_ref()
+                    .is_some_and(|r| revision.is_none_or(|wanted| major(r) == major(wanted)))
+        })
+        .flat_map(|v| {
+            v.links.iter().filter_map(move |link| {
+                Some(Candidate {
+                    url: usable(link)?,
+                    source: link.url.clone(),
+                    revision: v.revision.clone()?,
+                })
+            })
+        })
+        .collect()
+}
+
+pub fn supports_compatibility(revision: Option<&str>, crc: u32) -> bool {
+    [
+        PackKind::Duel,
+        PackKind::TwoVsTwo,
+        PackKind::Large,
+        PackKind::Legacy,
+        PackKind::Combined,
+        PackKind::Arcade,
+    ]
+    .into_iter()
+    .any(|kind| !compatible(revision, crc, kind).is_empty())
+}
+
+pub fn compatible_kinds(revision: Option<&str>, crc: u32) -> Vec<PackKind> {
+    [
+        PackKind::Duel,
+        PackKind::TwoVsTwo,
+        PackKind::Large,
+        PackKind::Legacy,
+        PackKind::Combined,
+        PackKind::Arcade,
+    ]
+    .into_iter()
+    .filter(|kind| !compatible(revision, crc, *kind).is_empty())
+    .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn reused_directory_suffix_selects_original_package_by_compatibility() {
+        let old = compatible(Some("R18"), 0x2b, PackKind::Duel);
+        let newer = compatible(Some("R18"), 0x2c, PackKind::Duel);
+        assert!(!old.is_empty() && !newer.is_empty());
+        assert!(old.iter().all(|c| c.revision == "R18d"));
+        assert!(newer.iter().all(|c| c.revision == "R18e"));
+        assert!(compatible(Some("R19"), 0x2b, PackKind::Duel).is_empty());
+    }
+
+    #[test]
+    fn stock_script_exception_requires_exact_original_package_digest_and_source() {
+        let version = catalogue()
+            .versions
+            .iter()
+            .find(|v| {
+                v.revision.as_deref() == Some("R2")
+                    && v.script_dependency.as_deref() == Some("base_game")
+            })
+            .unwrap();
+        let hash = version.package_sha256.as_deref().unwrap();
+        let source = &version.links[0].url;
+        assert!(uses_base_scripts("R2", source, hash));
+        assert!(!uses_base_scripts("R2", source, &"0".repeat(64)));
+        assert!(!uses_base_scripts(
+            "R2",
+            "https://example.org/unverified",
+            hash
+        ));
+        assert!(!uses_base_scripts("R3", source, hash));
+    }
 
     #[test]
     fn bundled_catalogue_contains_only_shareable_urls() {
@@ -178,8 +291,9 @@ mod tests {
             assert!(map_archive(archive, "R16"));
         }
         assert!(available("R16"));
-        // Other beta labels have not been established as replay revisions.
-        assert!(!available("R15"));
+        // Only explicitly verified beta-labelled records map to replays.
+        assert!(available("R15"));
+        assert!(!available("R15 Beta"));
         assert!(!available("R16 Beta"));
         assert!(command_post("R16b", PackKind::Duel).is_empty());
         assert!(map_archive("102plusmapsA.big", "R16"));
@@ -190,9 +304,10 @@ mod tests {
     fn r18f_large_pack_excludes_the_mislabeled_r18d_registry_link() {
         let links = command_post("R18f", PackKind::Large);
         assert_eq!(links.len(), 1);
-        assert!(links[0].url.path().contains(
-            "/R18f/KWCommunityPatch102PlusMaps3_R18f.zip"
-        ));
+        assert!(links[0]
+            .url
+            .path()
+            .contains("/R18f/KWCommunityPatch102PlusMaps3_R18f.zip"));
         assert!(!links[0].url.path().contains("R18d"));
         assert!(map_archive("102plusmaps3_18.big", "R18f"));
     }

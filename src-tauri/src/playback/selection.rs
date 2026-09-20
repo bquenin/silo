@@ -9,6 +9,7 @@ pub enum PackKind {
     Large,
     Legacy,
     Combined,
+    Arcade,
 }
 
 impl PackKind {
@@ -19,12 +20,16 @@ impl PackKind {
             "4v4 map pack" => Some(Self::Large),
             "legacy map pack" => Some(Self::Legacy),
             "all-in-one map pack" => Some(Self::Combined),
+            "arcade map pack" => Some(Self::Arcade),
             _ => None,
         }
     }
 
     pub fn from_archive(name: &str) -> Option<Self> {
         let name = name.to_ascii_lowercase();
+        if name.starts_with('f') && name.contains("mappack") && name.ends_with(".big") {
+            return Some(Self::Arcade);
+        }
         match name.as_str() {
             "102plusmaps.big" | "102plusmapsa.big" => return Some(Self::Duel),
             "102plusmaps2.big" | "102plusmaps2a.big" => return Some(Self::TwoVsTwo),
@@ -89,6 +94,8 @@ pub fn pack_label(page: &str) -> &'static str {
         "legacy map pack"
     } else if slug.contains("all-in-one") {
         "all-in-one map pack"
+    } else if slug == "arcade-map-pack" {
+        "arcade map pack"
     } else {
         "map pack"
     }
@@ -116,7 +123,7 @@ pub fn pages(revision: &str, known: &[PackKind], players: u32) -> Vec<String> {
             5..=8 => Some(Large),
             _ => None,
         })
-        .chain([Duel, TwoVsTwo, Large, Legacy, Combined])
+        .chain([Duel, TwoVsTwo, Large, Legacy, Combined, Arcade])
     {
         let known_map = known.contains(&kind);
         if (!known_map && ((kind == Duel && players > 2) || (kind == TwoVsTwo && players > 4)))
@@ -138,6 +145,7 @@ pub fn pages(revision: &str, known: &[PackKind], players: u32) -> Vec<String> {
             ),
             Legacy => format!("r{major}-legacy-map-pack"),
             Combined => format!("r{major}-all-in-one-map-pack"),
+            Arcade => "arcade-map-pack".into(),
         };
         pages.push(format!("https://kaneswrath.com/download/{slug}/"));
         if kind == Legacy && major == "23" {

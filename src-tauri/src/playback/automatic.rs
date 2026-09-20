@@ -89,30 +89,41 @@ pub fn inspect(target: &ReplayTarget, game_path: Option<&Path>, cache: &Path) ->
             game_path.context("Choose your Kane's Wrath game folder to play replays.")?;
         replay_path(target)?;
         let game = config::base(game_path, target.version)?;
-        let (asset, revision) = requirement(target)?;
+        let (asset, revision, crc) = requirement(target)?;
         let cancel = Cancellation::default();
         let control = Control {
             cancelled: &cancel,
             progress: &|_| {},
         };
-        if let Some(found) =
-            content::resolve(&game, cache, &asset, revision.as_deref(), false, &control)?
-        {
+        if let Some(found) = content::resolve(
+            &game,
+            cache,
+            &asset,
+            revision.as_deref(),
+            crc,
+            false,
+            &control,
+        )? {
             report.message = "Ready to play.".into();
             report.details = found
                 .archives
                 .iter()
+                .chain(found.custom_map.iter())
                 .map(|p| p.display().to_string())
                 .collect();
         } else {
-            let revision = revision
+            ensure!(!asset.starts_with("data/maps/internal/"),
+                "The exact custom map is missing from the game's Maps folder, or its file checksum differs from this replay.");
+            ensure!(community_asset(&asset), "The required base-game map or its recorded compatibility value is missing. Repair the game installation.");
+            let crc = crc
                 .context("The required base-game map is missing. Repair the game installation.")?;
             ensure!(
-                download::supported(&revision),
-                "Tacitus has no verified automatic download source for map version {revision}."
+                super::sources::supports_compatibility(revision.as_deref(), crc)
+                    || revision.as_deref().is_some_and(download::supported),
+                "Tacitus has no verified automatic download source for this map's compatibility value {crc:X}."
             );
             report.message =
-                format!("The content for {revision} will be prepared when you press Play.");
+                "The required map and scripts will be prepared when you press Play.".into();
         }
         report.can_play = true;
         Ok(())
@@ -133,14 +144,46 @@ fn replay_path(target: &ReplayTarget) -> Result<PathBuf> {
     Ok(dunce::canonicalize(path)?)
 }
 
-fn requirement(target: &ReplayTarget) -> Result<(String, Option<String>)> {
+fn requirement(target: &ReplayTarget) -> Result<(String, Option<String>, Option<u32>)> {
     let (asset, revision) = super::map_asset(&target.map_path)
         .context("This custom map is not supported by automatic playback yet.")?;
-    ensure!(
-        !asset.contains("1.02+") || revision.is_some(),
-        "The exact version of this community map could not be identified."
+    let crc = Some(
+        u32::from_str_radix(&target.map_crc, 16)
+            .context("The replay does not contain a valid map compatibility value")?,
     );
-    Ok((asset, revision))
+    Ok((asset, revision, crc))
+}
+
+pub(super) fn community_asset(asset: &str) -> bool {
+    asset.contains("__") || asset.contains("1.02+") || asset.contains("1.03")
+}
+
+/// Cache a separately downloaded, verified package for an exact replay.
+pub fn import_package(
+    target: &ReplayTarget,
+    cache: &Path,
+    package: &Path,
+    source: &str,
+    expected_sha256: &str,
+    control: &Control<'_>,
+) -> Result<PathBuf> {
+    let replay = replay_path(target)?;
+    ensure!(
+        content::hash_file(&replay, control)?.0 == target.file_hash,
+        "The replay has changed since import. Import it again before preparing content."
+    );
+    let (asset, revision, crc) = requirement(target)?;
+    let revision = revision.context("This replay does not identify a community map revision.")?;
+    download::import_package(
+        cache,
+        package,
+        &asset,
+        &revision,
+        crc.context("This replay does not identify a community map compatibility value")?,
+        source,
+        expected_sha256,
+        control,
+    )
 }
 
 /// Owns only generated files. Content archives remain in their original
@@ -175,17 +218,44 @@ pub fn prepare(
         "The replay has changed since import. Import it again before playing."
     );
     let game = config::base(game_path, target.version)?;
-    let (asset, revision) = requirement(target)?;
+    let (asset, revision, crc) = requirement(target)?;
     control.stage("checking", "Looking for the required map and scripts…")?;
-    let mut found = content::resolve(&game, cache, &asset, revision.as_deref(), true, control)?;
+    let mut found = content::resolve(
+        &game,
+        cache,
+        &asset,
+        revision.as_deref(),
+        crc,
+        true,
+        control,
+    )?;
     if found.is_none() && allow_download {
-        let revision = revision
-            .as_deref()
-            .context("The required base-game map is missing. Repair the game installation.")?;
-        let known = content::pack_hints(&game, cache, &asset, control)?;
-        let sources = selection::pages(revision, &known, target.n_players);
-        download::acquire(cache, &asset, revision, &sources, control)?;
-        found = content::resolve(&game, cache, &asset, Some(revision), true, control)?;
+        ensure!(!asset.starts_with("data/maps/internal/"),
+            "The exact custom map is missing from the game's Maps folder, or its file checksum differs from this replay.");
+        ensure!(community_asset(&asset), "The required base-game map or its recorded compatibility value is missing. Repair the game installation.");
+        let crc =
+            crc.context("The required base-game map is missing. Repair the game installation.")?;
+        let mut known = content::pack_hints(&game, cache, &asset, control)?;
+        if known.is_empty() {
+            known = super::sources::compatible_kinds(revision.as_deref(), crc);
+        }
+        // Early packs mixed capacities before the modern category split.
+        let players = if revision.is_none() {
+            0
+        } else {
+            target.n_players
+        };
+        let sources = selection::pages(revision.as_deref().unwrap_or(""), &known, players);
+        download::acquire(cache, &asset, revision.as_deref(), crc, &sources, control)?;
+        found = content::resolve(
+            &game,
+            cache,
+            &asset,
+            revision.as_deref(),
+            Some(crc),
+            true,
+            control,
+        )?;
     }
     let found = found.context("The required map or matching scripts are not available locally.")?;
     control.stage("preparing", "Preparing replay playback…")?;

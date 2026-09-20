@@ -23,28 +23,48 @@ containing game folder, without rewriting the old settings just by reading them.
 A replay's internal map path identifies the exact asset and revision. The
 three-hex-digit replay prefix (such as `283`) is removed and separators/case
 are normalized, while the complete directory and revision suffix are retained.
-A thumbnail, display name, `FakeMapID`, newer patch, or recorded `MC=` value
-cannot substitute for that asset. The recorded CRC is not treated as a unique
-file checksum.
+A thumbnail, display name, `FakeMapID`, or newer patch cannot substitute for
+that asset. Tacitus also compares the replay's hexadecimal `MC=` value with
+the exact map's compiled `MapMetaData` entry. Several releases reuse the same
+path: an R18 replay with `MC=2B` needs the original R18d package, while `MC=2C`
+needs R18e. The release label alone cannot establish compatibility.
+
+The parser reads manifest version 5, including old streams with one asset per
+map and recent streams containing a list. Stock maps use the active engine's
+metadata, including its bounded RefPack compression. Community MC values are
+compatibility codes, not cryptographic file checksums. Archive SHA-256 checks
+separately protect cached content from changes after download.
+
+Unversioned `1.02+ edition` maps are selected by exact path and compiled MC.
+Installed custom maps in the game's user `Maps` directory require the exact
+directory and filename plus the SAGE rotate/add checksum of the complete map
+file. A missing or different custom map fails explicitly.
 
 Resolution checks the persistent cache and then installed BIG archives,
 including packs disabled in the user's current configuration. An installed
 community map needs a revision-named script archive containing
 `data/scripts/scripts.lua`; a shared installed `102Scripts.big` alone cannot
-establish which historical patch it belongs to.
+establish which historical patch it belongs to. Cached packages retain their
+own bundled scripts. Original R2–R7 installers that contain no community script
+bundle may use stock scripts only when their source URL and complete package
+SHA-256 match an inspected exception in the source catalogue.
 
 When content is missing, Tacitus first uses cached and installed map indexes
 to identify the likely pack. An exact map entry takes priority; the same map
 in another revision can guide pack selection but cannot satisfy playback.
-Otherwise, the active participant count selects the first category: 1–2
+Otherwise, compatible Command Post registry codes supply category hints, then
+the active participant count selects the first category: 1–2
 players prefer 1v1, 3–4 prefer 2v2, and 5–8 prefer the large-map pack.
 Observers and commentators are excluded; AI players count. FFA and team
 games with the same participant count use the same map-capacity hint.
 Without a known map match, categories too small for the match are skipped.
+Early unversioned packs mixed capacities, so their categories are not excluded
+by participant count.
 
 Within each category, verified public links from Command Post's historical
 registry are tried first. The kaneswrath.com version lists are fallbacks for
-the exact R21–R25 revision, including filenames that use underscores. The
+the exact R21–R25 revision, including filenames with underscores or WordPress
+numeric duplicate suffixes such as `Map-Pack-1.zip`. The
 [source catalogue](map-pack-sources.md) records links, their availability,
 exact Command Post version IDs and archive names. Downloading the embedded
 public links does not require a Command Post login. Match size is
@@ -59,14 +79,16 @@ Other layouts fail without running installers. Finding an older public ZIP
 does not by itself establish that its installer layout is supported.
 
 The extractor reads the installer as data and selects the revision's map
-archives, scripts and community texture archive from its Patch103 payload.
+archives, scripts and community texture archive from its Patch103 payload,
+including the verified `Patch103/ArcadeMapPack` subfolder used by Arcade F03.
 Command Post's metadata handles historical archive aliases such as
 `R201v1Maps.big` for R20e and `R21g1v1Maps.big` for R21h. The internal map
 asset must still match the replay's complete revision-specific path.
 The verified Command Post release named `R16 Beta` maps to replay revision
 `R16`. Its three installers also contain companion `102plusmaps*A.big`
 archives, which supply additional R16 maps. These are extracted with the
-main archives and scripts from the same package. Other beta labels are not
+main archives and scripts from the same package. The inspected R15 Beta
+standard and Predatore installers likewise contain exact `__15` maps. Other beta labels are not
 automatically treated as final replay revisions.
 The R18f large-map registry link points to an older R18d package. The catalogue
 excludes it for R18f and uses the verified R18f ZIP on the same Command Post
@@ -111,8 +133,9 @@ The temporary configuration mounts the resolved replay content ahead of the
 installed base-game, language and audio layers. It does not read the user's
 top-level patch selection or write the game's SkuDef, Patch103 configuration
 or installed packs. Paths to borrowed archives remain in their original
-locations. Unsupported custom maps, unidentified community revisions and
-missing engine/base content produce an explanation instead of guessing.
+locations. Unsupported map namespaces, absent exact custom maps, unavailable
+compatibility values and missing engine/base content produce an explanation
+instead of guessing.
 
 The game is started directly, in its installation directory:
 
@@ -144,6 +167,7 @@ tacitus-cli check 123 --json
 tacitus-cli play 123 --dry-run --json
 tacitus-cli play 123 --game "C:\Games\KW"
 tacitus-cli prepare 123 --offline --json
+tacitus-cli cache-pack 123 C:\Downloads\historical-pack.zip --source https://example.org/pack.zip --sha256 <verified-SHA256>
 ```
 
 `check` and `play --dry-run` inspect without downloading or launching. A
@@ -152,11 +176,39 @@ positive report can mean that Play can download missing content.
 inspection without starting the game; `--offline` forbids downloads.
 `--cache DIR` overrides the cache. `--db` selects the catalogue as usual.
 
+`cache-pack` imports a separately obtained ZIP for a replay with a revision
+suffix. It verifies the supplied SHA-256, exact map asset, compiled MC and
+script dependency before publishing the cache. The shareable source URL must
+exclude credentials. The original ZIP is preserved, and no installer or game
+is executed. This supports packs obtained through Command Post's managed
+download flow without storing its session credentials in Tacitus.
+
+To audit every catalogue entry without downloads or game simulation:
+
+```powershell
+python tools/audit_replay_content.py --game "C:\Games\KW" --output scratch/coverage.json
+```
+
+The audit hashes each cached archive once, checks replay hashes, reads actual
+BIG indexes and compiled map metadata, validates script provenance, and checks
+installed custom-map checksums. `--db`, `--cache` and `--maps` override the
+default locations. The [coverage report](replay-content-coverage.md) records
+the latest measured result and outstanding exact requirements.
+
 The advanced `--sku FILE` override retains the former manual compatibility
 checker/launcher for diagnostics. It does not use automatic preparation and
 cannot be combined with `--game`, `--offline` or `prepare`.
 
 ## Implementation references and checks
+
+Compiled map layouts follow WrathEd2012's
+[MetaDataCommon.xml](https://github.com/Qibbi/WrathEd2012/blob/master/SAGE/Games/Kane%27s%20Wrath/Includes/MetaDataCommon.xml),
+[MapMetaData.xml](https://github.com/Qibbi/WrathEd2012/blob/master/SAGE/Games/Kane%27s%20Wrath/Includes/MapMetaData.xml)
+and `SAGE.Stream` manifest definitions. RefPack command formats are documented
+by [OpenSAGE](https://github.com/OpenSAGE/OpenSAGE/blob/master/src/OpenSage.FileFormats.RefPack/RefPackStream.cs).
+The custom-map checksum follows EA's
+[CRC implementation](https://github.com/electronicarts/CnC_Generals_Zero_Hour/blob/main/GeneralsMD/Code/GameEngine/Source/Common/crc.cpp)
+and `GameClient/MapUtil.cpp`, confirmed against the installed Alien Tower maps.
 
 The [NSISBI project](https://sourceforge.net/projects/nsisbi/), NSIS's
 [fileform.h](https://github.com/kichik/nsis/blob/master/Source/exehead/fileform.h), and the
