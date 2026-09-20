@@ -126,6 +126,28 @@ overwritten after import. Its stock map exists, but the original replay must
 be recovered or the current file imported as a separate entry before that
 replay can pass preparation. No matching local backup was found.
 
+## Recovery boundary
+
+Further recovery is blocked on obtaining the missing original content.
+The live Command Post registry was rechecked on 2026-09-20: R12d, R13c and
+R13d still point to the same unavailable `app-direct.net` downloads, with no
+replacement links. Those URLs returned HTTP 403 on the final recheck;
+the earlier source-catalogue checks recorded HTTP 404. Command Post's managed
+R20c 1v1 and 2v2 archive requests still returned HTTP 404.
+
+The two R20-era 4K add-ons in the public Mega folder were inspected as data.
+Their installer file tables contain 119 and 156 records respectively, with
+no `.map` files, map directories or BIG archives. They cannot replace the
+missing map packs. Neither installer was executed.
+
+The next useful input is an original installer/ZIP, an installed copy of the
+required map BIG and matching scripts, or a surviving download source for
+one of the requirements in the missing-content manifest. The five custom
+map files must match their recorded whole-file checksums. A new candidate
+can be checked against the saved asset paths, MC values and original Command
+Post archive hashes before installation. Renaming a later release or changing
+the recorded compatibility value would not recover the required content.
+
 ## Recovered coverage and provenance
 
 Recovered packages include early R2–R11 releases, R12 category packs, R15
