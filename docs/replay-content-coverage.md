@@ -1,16 +1,16 @@
 # Replay content coverage
 
 Checked 2026-09-20 against the 1,228-entry working catalogue and the installed
-Kane's Wrath 1.2 game. **1,160 replays (94.5%) have matching content.** Full
+Kane's Wrath 1.2 game. **1,161 replays (94.5%) have matching content.** Full
 coverage has not been reached.
 
 | Result | Replays |
 | --- | ---: |
 | Community map path, compiled MC, package scripts and archive hashes verified | 845 |
 | Stock map path and active engine's compiled MC verified | 311 |
-| Installed custom map path and complete file checksum verified | 4 |
+| Installed custom map path and complete file checksum verified | 5 |
 | Exact historical map pack still missing | 58 |
-| Exact custom map still missing | 9 |
+| Exact custom map still missing | 8 |
 | Replay file changed after import | 1 |
 | Total | 1,228 |
 
@@ -41,12 +41,15 @@ but the required historical **map packs** were not found there. R20c managed
 Drive objects returned missing-file responses. These results do not prove
 that no copy survives elsewhere.
 
+The Mega folder linked by a [2023 R20 release guide](https://cncseries.ru/kw-patch-1-02/)
+was also listed. It contains R20e-labelled archives and 4K add-ons, with no
+R20c archive listed; it does not supply the missing R20c builds.
+
 | Missing custom map directory | File checksum (hex) | Replays |
 | --- | --- | ---: |
 | `redzone_rampage_1v1` | `6F11AD75` | 4 |
 | `the_kracken` | `0FCC7DC4` | 1 |
 | `tiberium_garden_6_way_2012` | `D5C7C73C` | 1 |
-| `tiberium gardens iii` | `9C00930B` | 1 |
 | `island_paradise_2021` | `6BDD2F67` | 1 |
 | `!!!!!!infinity_island` | `F58A6252` | 1 |
 
@@ -57,27 +60,52 @@ and V1.7x maps matched the other three custom-map replays. Similarly named
 Redzone and Infinity Island maps from Command Post had different checksums
 and were excluded.
 
-The [missing-content manifest](missing-replay-content.json) lists all **47
-distinct missing map requirements affecting 67 replays**, with their exact
+The original `Tiberium Gardens III` custom map was recovered from
+[MaD_Animal's Tiberium Wars collection](https://steamcommunity.com/sharedfiles/filedetails/?id=1503194353),
+using its [public archive share](https://madnetwork.direct.quickconnect.to:5001/sharing/oB6Cylj5U).
+Its complete 450,767-byte `.map` file matches the replay's `9C00930B` checksum
+and has SHA-256 `d10323815862d8e48e869dfdd7c0faebb7595e2a13da2c532fa2575857911c15`.
+The original map, preview and two XML companions were installed; offline
+preparation passed. Only those four ZIP members were downloaded and checked,
+not the entire Tiberium Wars collection. The similarly named Kane's Wrath
+website download in the candidate table below is a different file.
+
+The [missing-content manifest](missing-replay-content.json) lists all **46
+distinct missing map requirements affecting 66 replays**, with their exact
 asset paths, MC values and engine versions. It also records 24 original
 Command Post release records, including available archive and script MD5s,
 to identify surviving copies. Those records are recovery leads, not claims
 that their downloads still work. The manifest contains no replay filenames,
 catalogue IDs, local paths or session credentials.
 
-Further checks covered every `.map` file in two public collections, including
+Further checks covered every `.map` file in eight public collections, including
 maps stored under unrelated names:
 
 | Collection | Map files checked | ZIP/RAR SHA-256 | Additional missing-map matches |
 | --- | ---: | --- | ---: |
 | [KanesWrath.com mega pack](https://kaneswrath.com/download/mega-mappack/) | 2,309 | `2b349bb410ffae12f7dda1aaeebc8ef79ddc7418f409472adcf23a6a36d38fd6` | 0 |
 | [ItzTeeJaay's 2020 collection](https://www.moddb.com/games/cc-kanes-wrath/addons/itzteejaays-kanes-wrath-map-collection) | 305 | `1d3885c1693cba4f752c727adbd128c495bd7f7d41107a6d1c7628cbee8f34a8` | 0 |
+| [MaD_Animal KW pack A–L](https://madnetwork.direct.quickconnect.to:5001/sharing/wKvFDDIFR) | 477 | `8d2a79d67b90cb3176be2f81cca7064e17963a94bdcd0186a37c5fd833b8e4ca` | 0 |
+| [MaD_Animal KW pack M–Z](https://madnetwork.direct.quickconnect.to:5001/sharing/sPbgOrdoH) | 520 | `3577c7f03c200c39c960d823ca1ca1cd210e3193ff07ddb67889807d495c5459` | 0 |
+| [MaD_Animal edited maps](https://madnetwork.direct.quickconnect.to:5001/sharing/yVqRoD5O7) | 49 | `d72632c0d734adccac0a6771aa2ca93de14a60039adaee29885dc24b56b8811d` | 0 |
+| [MaD_Animal original maps](https://madnetwork.direct.quickconnect.to:5001/sharing/Il3LwuQWe) | 67 | `15aebce0aa9cbba25d4cdb66fff624c35f5bf36354626dcd3933bc6fa6d3a878` | 0 |
+| [MaD_Animal TD, AOD and mission maps](https://madnetwork.direct.quickconnect.to:5001/sharing/gAQlZomSz) | 191 | `c70c112ba673eb0d5c19c46cb5653d7b27fb82f4ccb2914db77a4b73b1486b31` | 0 |
+| [PurpleGaga27 KW skirmish collection](https://drive.google.com/file/d/1GiMujALCi4sKu4xW3mTacEyHGSvcPJ78/view) | 1,108 | `10f583eaea6ad78dc441f4ca2c1f34f79351ce69faca4c4b8dd96068e3ba0c80` | 0 |
 
-The second collection's published MD5 also matched. These collections
-overlap, so the counts above are not a count of unique maps. The mega pack
+Published MD5s also matched for ItzTeeJaay's collection and
+[MaD_Animal's 67 original maps](https://www.moddb.com/games/cc-kanes-wrath/addons/cc-kanes-wrath-67-maps-made-by-mad-animal).
+The MaD_Animal shares
+are linked from the author's [Kane's Wrath guide](https://steamcommunity.com/sharedfiles/filedetails/?id=1503234098);
+PurpleGaga27's share is linked in the author's [collection post](https://forums.cncnz.com/topic/21722-the-ultimate-skirmish-map-packs-for-cc-the-ultimate-collection-and-the-first-decade/).
+Counts reflect actual `.map` entries, even where archive titles say 517 or
+1,035. These collections overlap, so the 5,026 entries above are not a count
+of unique maps. The mega pack
 had already supplied the matching Tournament Highlands map noted above.
 Its `tiberium garden iii 2012 1.0` folder contains companion images and
 strings, but no `.map` file.
+
+All 26 map ZIPs returned by the related Command Post custom-map searches were
+also downloaded and checksum-checked, with no additional matches.
 
 Additional candidates also failed the replay checksum check:
 

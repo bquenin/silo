@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "checked_at": "2026-09-20T07:50:45.276488+00:00",
+  "checked_at": "2026-09-20T08:40:21.821028+00:00",
   "description": "Missing content requirements only. The separately overwritten replay already has its stock map and is excluded.",
   "validation": {
     "community": "Require the exact full asset path and compiled MapMetaData MC, the matching script dependency, and verified archive hashes. MC is a compatibility code, not a cryptographic checksum.",
@@ -8,8 +8,8 @@
     "command_post_records": "Original registry records are recovery leads, not verified available downloads. Archive MD5 values are optional and must not replace metadata and script validation. Release labels alone are insufficient.",
     "early_multiplayer": "No matching early multiplayer version record was found. Available R3/R4 duel packs have MC 6/7 but do not contain these assets."
   },
-  "unique_missing_requirements": 47,
-  "affected_replays": 67,
+  "unique_missing_requirements": 46,
+  "affected_replays": 66,
   "requirements": [
     {
       "family": "R12d",
@@ -327,18 +327,6 @@
       "family": "custom",
       "asset": "data/maps/internal/the_kracken/the_kracken.map",
       "mc_hex": "FCC7DC4",
-      "engine": [
-        1,
-        2,
-        0,
-        0
-      ],
-      "replay_count": 1
-    },
-    {
-      "family": "custom",
-      "asset": "data/maps/internal/tiberium gardens iii/tiberium gardens iii.map",
-      "mc_hex": "9C00930B",
       "engine": [
         1,
         2,
