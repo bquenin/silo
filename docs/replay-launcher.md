@@ -52,8 +52,9 @@ not guaranteed to equal map capacity, so an unknown map can still require
 another candidate if the first pack does not contain it. Missing
 historical downloads fail explicitly; Tacitus never substitutes the latest
 version. Download support also depends on the available package format:
-direct BIG files in ZIPs, Unicode non-solid DEFLATE NSIS (including R20e),
-and the Unicode chunked LZMA NSISBI layout used by R24g are supported.
+direct BIG files in ZIPs, ANSI/Unicode solid LZMA NSIS (including R16),
+Unicode non-solid DEFLATE NSIS (including R20e), and the Unicode chunked
+LZMA NSISBI layout used by R24g are supported.
 Other layouts fail without running installers. Finding an older public ZIP
 does not by itself establish that its installer layout is supported.
 
@@ -62,9 +63,22 @@ archives, scripts and community texture archive from its Patch103 payload.
 Command Post's metadata handles historical archive aliases such as
 `R201v1Maps.big` for R20e and `R21g1v1Maps.big` for R21h. The internal map
 asset must still match the replay's complete revision-specific path.
-It does not execute installer instructions, plugins, replacement engines or
+The verified Command Post release named `R16 Beta` maps to replay revision
+`R16`. Its three installers also contain companion `102plusmaps*A.big`
+archives, which supply additional R16 maps. These are extracted with the
+main archives and scripts from the same package. Other beta labels are not
+automatically treated as final replay revisions.
+The R18f large-map registry link points to an older R18d package. The catalogue
+excludes it for R18f and uses the verified R18f ZIP on the same Command Post
+CDN. Its map archive matches Command Post's published checksum and contains
+the exact `__18f` assets; the older archive is never used as a substitute.
+The extractor does not execute installer instructions, plugins, replacement engines or
 configuration changes. Extraction has bounds on file counts, offsets, memory,
 expanded sizes and output paths. No external extraction program is required.
+Solid streams are decoded into a bounded temporary data file, then only
+allowlisted content is copied into the cache. The temporary file is removed
+on completion, failure, or cancellation. The reader checks dictionary sizes,
+stream completion, decoded sizes, file offsets, and both NSIS string encodings.
 
 ## Cache and temporary sessions
 
@@ -84,6 +98,10 @@ packages are not launch candidates. Hashes detect subsequent corruption;
 the original download's provenance is the provider's HTTPS endpoint, not
 an independently signed publisher manifest. Once cached, playback does not
 contact the provider.
+
+A cache created before companion archives were recognized remains usable
+for maps it contains. It cannot suppress a new download for a missing map
+until it includes all map archives declared for that source.
 
 Downloads hold an OS file lock on the cache to prevent overlapping writers.
 After a crash, the next download removes only marked abandoned staging
@@ -160,6 +178,14 @@ from Command Post's public Drive links were fully downloaded, extracted and
 used to prepare replays 405 and 443 on 2026-09-19. The 2v2 check exercised
 Tacitus's complete network download path; the 1v1 check reused the verified
 research download. These checks did not start the game.
+
+R16 checks on 2026-09-19 prepared Tournament Highlands (388), Redzone
+Rampage (397), Spacegarden (385), and companion maps Smashed Decision (453),
+Forgotten Forest (635), and Tiberian Dunes (499) from Command Post's three
+public CDN ZIPs. Tests cover the explicit `R16 Beta` mapping, ANSI solid
+LZMA extraction, truncation, trailing data, dictionary bounds, cancellation,
+and upgrading a cache that lacks companion maps. No installer or game was
+executed during these preparation checks.
 
 On 2026-09-19, the R24g 1v1 ZIP was downloaded from the historical version
 list and extracted without executing its installer. Catalogue replay 1153

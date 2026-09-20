@@ -22,7 +22,8 @@ def render(data):
                   '102plusmaps3a': 'Predatore 3', '102plusmaps4': 'Pack 4'}
     status_names = {'zip_header_verified': 'ZIP header verified', 'not_zip': 'No ZIP returned',
                     'http_404': 'HTTP 404', 'TimeoutError': 'Timed out', 'unchecked': 'Unchecked',
-                    'zip_index_verified': 'ZIP headers and indexes verified'}
+                    'zip_index_verified': 'ZIP headers and indexes verified',
+                    'wrong_revision': 'Wrong revision (excluded)'}
     def status(link):
         return status_names.get(link['status'], link['status'])
     lines = [
@@ -49,9 +50,45 @@ def render(data):
         'by exact `metapack_name` and `meta_version_id`. The version identifier also supplies '
         'the map archive name: for example R20e uses `R201v1Maps.big`, while R21h uses '
         '`R21g1v1Maps.big`. Internal asset paths still determine the exact map revision.', '',
-        'Installer support covers ZIPs containing BIG files, Unicode non-solid DEFLATE NSIS, '
-        'and Unicode chunked LZMA NSISBI. Other installer layouts fail without being executed. '
+        'Installer support covers ZIPs containing BIG files, ANSI/Unicode solid LZMA NSIS, '
+        'Unicode non-solid DEFLATE NSIS, and Unicode chunked LZMA NSISBI. '
+        'Other installer layouts fail without being executed. '
         'Not every historical pack listed here has been fully extracted or replay-tested.', '',
+        '## R16', '',
+        'Command Post labels this release **R16 Beta**. Its actual map assets use the '
+        '`__16` suffix recorded by R16 replays. The three verified standard pack records '
+        'explicitly map to R16; other beta labels remain excluded until their assets are verified. '
+        'The installers use an ANSI NSIS header and solid LZMA compression.', '',
+        'Each installer contains its main `102plusmaps*.big` archive, a companion '
+        '`102plusmaps*A.big` archive, and matching scripts. Tacitus includes both map '
+        'archives from that exact package. This covers companion maps such as Smashed '
+        'Decision, Forgotten Forest and Tiberian Dunes. A previously cached pack missing '
+        'its companion archive no longer suppresses the download of a missing map.', '',
+        '| Pack | Command Post link | Public ZIP size |', '| --- | --- | ---: |',
+    ]
+    for version, link in cp:
+        if version['revision'] == 'R16' and version['kind']:
+            lines.append(f"| {pack_names[version['set']]} | [Download]({link['url']}) | {link['bytes']:,} bytes |")
+    lines += ['',
+        '## R18f 4v4', '',
+        'Command Post registry link 809, registered as R18f, points to an R18d ZIP '
+        'whose map assets use `__18`. Tacitus excludes that link for R18f and uses '
+        'the [correct R18f ZIP on the same Command Post CDN]('
+        'https://cgf-uploads.fra1.cdn.digitaloceanspaces.com/files/1.02+/R18f/'
+        'KWCommunityPatch102PlusMaps3_R18f.zip). The corrected path follows the '
+        'installer filename in Command Post version `61f8aa314ec59`.', '',
+        'The 251,672,113-byte ZIP was fully downloaded and extracted. Its '
+        '`102plusmaps3_18.big` contains 40 exact `__18f` map assets and matches '
+        'the MD5 recorded in Command Post metadata: '
+        '`1f63b5e1ac0a3859df1a2c2d222a1117`. Matching scripts come from the same '
+        'installer. Tacitus successfully prepared '
+        '`4_vs_4-367542da1019e4a6.KWReplay` (Tiberian Gardens VIII) with these '
+        'assets. The pack covers all seven R18f large-map replays in the checked '
+        'catalogue. These checks prepare content without starting the game.', '',
+        'ZIP SHA-256: '
+        '`7cff6da9368c02c0d85ff497b7c850f7c5444d879fd355a2bd53d23d013985b8`.',
+    ]
+    lines += ['',
         '## R20e', '',
         '| Pack | Command Post link | Public ZIP size |',
         '| --- | --- | ---: |',

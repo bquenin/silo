@@ -168,6 +168,15 @@ pub fn contains_other_map(cache: &Path, source: &str, revision: &str, asset: &st
         if let Ok(pack) = manifest(&entry.path()) {
             if pack.source == source
                 && pack.revision.eq_ignore_ascii_case(revision)
+                && super::sources::complete_map_archives(
+                    source,
+                    revision,
+                    &pack
+                        .archives
+                        .iter()
+                        .map(|a| a.name.as_str())
+                        .collect::<Vec<_>>(),
+                )
                 && !pack
                     .archives
                     .iter()

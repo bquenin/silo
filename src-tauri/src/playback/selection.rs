@@ -25,6 +25,12 @@ impl PackKind {
 
     pub fn from_archive(name: &str) -> Option<Self> {
         let name = name.to_ascii_lowercase();
+        match name.as_str() {
+            "102plusmaps.big" | "102plusmapsa.big" => return Some(Self::Duel),
+            "102plusmaps2.big" | "102plusmaps2a.big" => return Some(Self::TwoVsTwo),
+            "102plusmaps3.big" | "102plusmaps3a.big" => return Some(Self::Large),
+            _ => {}
+        }
         for (suffix, kind) in [
             ("1v1maps.big", Self::Duel),
             ("2v2maps.big", Self::TwoVsTwo),
@@ -201,6 +207,18 @@ mod tests {
             Some(PackKind::Large)
         );
         assert_eq!(PackKind::from_archive("102Scripts.big"), None);
+        assert_eq!(
+            PackKind::from_archive("102plusmaps.big"),
+            Some(PackKind::Duel)
+        );
+        assert_eq!(
+            PackKind::from_archive("102plusmaps2A.big"),
+            Some(PackKind::TwoVsTwo)
+        );
+        assert_eq!(
+            PackKind::from_archive("102plusmaps3.big"),
+            Some(PackKind::Large)
+        );
         assert_eq!(PackKind::from_archive("random2v2maps.big"), None);
     }
 }

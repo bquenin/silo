@@ -3,8 +3,8 @@
 //! NSIS structures follow Source/exehead/fileform.h (NSIS / NSISBI).
 //! We read file records only: no installer instructions, plugins, engine
 //! replacements, registry changes, or supplied configuration are executed.
-//! Supported layouts: Unicode NSIS with non-solid DEFLATE, and NSISBI with
-//! 64-bit item lengths and chunked non-solid LZMA. See docs/map-pack-sources.md.
+//! Supported layouts: ANSI/Unicode NSIS with solid LZMA or non-solid DEFLATE,
+//! and NSISBI with chunked non-solid LZMA. See docs/map-pack-sources.md.
 use std::cell::Cell;
 use std::collections::BTreeMap;
 use std::fs::{self, File};
@@ -89,6 +89,21 @@ impl<R: Read, F: FnMut(u64)> Read for ProgressReader<R, F> {
         let read = self.inner.read(buffer)?;
         (self.on_read)(read as u64);
         Ok(read)
+    }
+}
+
+struct CheckedReader<'a, R> {
+    inner: R,
+    failed: &'a Cell<bool>,
+}
+
+impl<R: Read> Read for CheckedReader<'_, R> {
+    fn read(&mut self, buffer: &mut [u8]) -> std::io::Result<usize> {
+        let result = self.inner.read(buffer);
+        if !buffer.is_empty() && matches!(&result, Ok(0) | Err(_)) {
+            self.failed.set(true);
+        }
+        result
     }
 }
 
@@ -433,17 +448,28 @@ fn item(
     }
 }
 
-fn string_at(header: &[u8], table: usize, end: usize, index: u32) -> Result<String> {
+fn string_at(header: &[u8], table: usize, end: usize, index: u32, unicode: bool) -> Result<String> {
     let start = table
         .checked_add(
             (index as usize)
-                .checked_mul(2)
+                .checked_mul(if unicode { 2 } else { 1 })
                 .context("Invalid string offset")?,
         )
         .context("Invalid string offset")?;
     let bytes = header
         .get(start..end)
         .context("Installer string outside table")?;
+    if !unicode {
+        let length = bytes
+            .iter()
+            .take(4096)
+            .position(|b| *b == 0)
+            .context("Unterminated installer string")?;
+        // NSIS variable codes are opaque bytes here. We only compare the
+        // ASCII Patch103 suffix and allowlisted ASCII filenames, never expand
+        // variables or interpret the installer's output paths.
+        return Ok(bytes[..length].iter().map(|b| char::from(*b)).collect());
+    }
     let mut units = Vec::new();
     for pair in bytes.as_chunks::<2>().0.iter().take(4096) {
         let unit = u16::from_le_bytes(*pair);
@@ -471,11 +497,13 @@ fn records(header: &[u8], revision: &str) -> Result<BTreeMap<String, u64>> {
         entries >= 60 && entry_size.is_some() && strings < languages && languages <= header.len(),
         "Unsupported installer record layout"
     );
-    // The supported NSIS Unicode string table begins with its empty string.
+    // Both encodings begin with the empty string. A second zero byte marks
+    // the UTF-16 table; legacy ANSI tables continue with their first string.
     ensure!(
-        header.get(strings..strings + 2) == Some(&[0, 0]),
+        header.get(strings) == Some(&0),
         "Unsupported installer string encoding"
     );
+    let unicode = header.get(strings + 1) == Some(&0);
     let entry_size = entry_size.unwrap();
     let mut files = BTreeMap::new();
     let mut in_patch = false;
@@ -483,14 +511,15 @@ fn records(header: &[u8], revision: &str) -> Result<BTreeMap<String, u64>> {
         let at = entries + n * entry_size;
         match u32_at(header, at)? {
             11 if u32_at(header, at + 8)? != 0 => {
-                let directory = string_at(header, strings, languages, u32_at(header, at + 4)?)?;
+                let directory =
+                    string_at(header, strings, languages, u32_at(header, at + 4)?, unicode)?;
                 in_patch = directory
                     .replace('/', "\\")
                     .to_ascii_lowercase()
                     .ends_with("\\patch103");
             }
             20 if in_patch => {
-                let name = string_at(header, strings, languages, u32_at(header, at + 8)?)?;
+                let name = string_at(header, strings, languages, u32_at(header, at + 8)?, unicode)?;
                 if wanted(&name, revision) {
                     // Some packs include the texture fix twice. NSIS's later
                     // file record replaces the earlier one at the same path.
@@ -510,6 +539,98 @@ fn records(header: &[u8], revision: &str) -> Result<BTreeMap<String, u64>> {
         "No replay content in installer"
     );
     Ok(files)
+}
+
+/// Solid NSIS stores its header and all file items in one LZMA stream. Decode
+/// that bounded stream into an owned temporary data file before following
+/// offsets. It is never an executable and is removed when this function exits.
+fn extract_solid(
+    file: &mut File,
+    offset: u64,
+    end: u64,
+    expected_header: u64,
+    output: &Path,
+    revision: &str,
+    label: &str,
+    control: &Control<'_>,
+) -> Result<()> {
+    ensure!(
+        offset.checked_add(10).is_some_and(|n| n <= end),
+        "Truncated solid installer stream"
+    );
+    file.seek(SeekFrom::Start(offset))?;
+    let mut props = [0; 5];
+    file.read_exact(&mut props)?;
+    let dict = u32::from_le_bytes(props[1..].try_into()?);
+    ensure!(
+        props[0] == 0x5d && dict > 0 && dict <= 64 * 1024 * 1024,
+        "Unsupported solid installer compression"
+    );
+    let progress = ExtractionProgress::new(control, end - offset, label)?;
+    progress.advance(5);
+    let mut compressed = file.take(end - offset - 5);
+    let premature_eof = Cell::new(false);
+    let mut decoded =
+        tempfile::tempfile_in(output.parent().context("Missing extraction directory")?)?;
+    let decoded_size = {
+        // The decoder's byte adapter substitutes zero on read errors. Record
+        // premature EOF and I/O failures independently of its end marker.
+        let checked = CheckedReader {
+            inner: &mut compressed,
+            failed: &premature_eof,
+        };
+        let tracked = ProgressReader {
+            inner: checked,
+            on_read: |bytes| progress.advance(bytes),
+        };
+        let mut buffered = BufReader::new(tracked);
+        let mut decoder =
+            LzmaReader::new_with_props(&mut buffered, u64::MAX, props[0], dict, None)?;
+        let size = copy_limited(&mut decoder, &mut decoded, MAX_EXPANDED, control)?;
+        ensure!(!premature_eof.get(), "Truncated solid installer stream");
+        ensure!(
+            buffered.buffer().is_empty(),
+            "Trailing data in solid installer stream"
+        );
+        size
+    };
+    ensure!(compressed.limit() == 0, "Truncated solid installer stream");
+    decoded.seek(SeekFrom::Start(0))?;
+    let mut length = [0; 4];
+    decoded.read_exact(&mut length)?;
+    ensure!(
+        u32::from_le_bytes(length) as u64 == expected_header,
+        "Solid installer header size does not match"
+    );
+    let mut header = vec![0; expected_header as usize];
+    decoded.read_exact(&mut header)?;
+    let data = 4 + expected_header;
+    let files = records(&header, revision)?;
+    let mut total = 0;
+    for (name, offset) in files {
+        control.check()?;
+        let at = data
+            .checked_add(offset)
+            .context("Invalid solid installer offset")?;
+        let (compressed, size) = Layout::Deflate.item_header(&mut decoded, at, decoded_size)?;
+        ensure!(
+            !compressed,
+            "Unexpected compressed file in solid installer stream"
+        );
+        ensure!(
+            size <= MAX_FILE && size <= MAX_EXPANDED - total,
+            "The map package expands beyond the supported size."
+        );
+        let written = copy_limited(
+            (&mut decoded).take(size),
+            &mut File::create(output.join(name))?,
+            size,
+            control,
+        )?;
+        ensure!(written == size, "Incomplete file in solid installer stream");
+        total += written;
+    }
+    progress.finish()
 }
 
 fn extract_installer(
@@ -533,7 +654,8 @@ fn extract_installer(
         .context("NSIS header not found")?;
     // 0x10: long item offsets; 0x40: chunk framing. External/stub installers
     // require additional files and are deliberately not interpreted here.
-    let layout = match u32_at(&prefix, start)? & !0x0e {
+    let flags = u32_at(&prefix, start)?;
+    let layout = match flags & !0x0e {
         0 => Layout::Deflate,
         0x50 if u64_at(&prefix, start + 28)? == 0 => Layout::ChunkedLzma,
         _ => anyhow::bail!("Unsupported NSIS variant"),
@@ -550,6 +672,24 @@ fn extract_installer(
         end <= size && end > start as u64 + layout.first_header_bytes() + layout.item_bytes(),
         "Installer extends outside package"
     );
+    // Solid LZMA begins with five properties bytes and a zero range-coder
+    // byte, rather than a per-item length. Other codecs/layouts fail closed.
+    if matches!(layout, Layout::Deflate)
+        && prefix.get(start + 28) == Some(&0x5d)
+        && prefix.get(start + 33) == Some(&0)
+    {
+        let compressed_end = end - if flags & 4 == 0 { 4 } else { 0 };
+        return extract_solid(
+            &mut file,
+            start as u64 + 28,
+            compressed_end,
+            expected_header,
+            output,
+            revision,
+            label,
+            control,
+        );
+    }
     let header_offset = start as u64 + layout.first_header_bytes();
     let (_, length) = layout.item_header(&mut file, header_offset, end)?;
     let data = (header_offset + layout.item_bytes())
@@ -602,6 +742,114 @@ mod tests {
     use super::*;
     use crate::playback::automatic::Cancellation;
     use std::cell::RefCell;
+
+    // Synthetic ANSI NSIS header and file records, compressed independently
+    // with Python's lzma.FORMAT_RAW (LZMA1, lc=3, lp=0, pb=2, dict=8 MiB).
+    const SOLID: &[u8] = include_bytes!("fixtures/solid-ansi.lzma");
+    const SOLID_HEADER: u32 = 318;
+
+    fn solid_installer(root: &Path, compressed: &[u8], header_size: u32) -> PathBuf {
+        let mut payload = vec![0; 512];
+        payload[..2].copy_from_slice(b"MZ");
+        payload.extend(0u32.to_le_bytes());
+        payload.extend(SIGNATURE);
+        payload.extend(header_size.to_le_bytes());
+        payload.extend((28 + compressed.len() as u32 + 4).to_le_bytes());
+        payload.extend(compressed);
+        // The outer ZIP validates payload integrity; the NSIS CRC isn't used.
+        payload.extend(0u32.to_le_bytes());
+        let path = root.join("installer.dat");
+        fs::write(&path, payload).unwrap();
+        path
+    }
+
+    #[test]
+    fn solid_ansi_nsis_extracts_only_allowlisted_patch_content() {
+        let root = tempfile::tempdir().unwrap();
+        let input = solid_installer(root.path(), SOLID, SOLID_HEADER);
+        let output = root.path().join("content");
+        fs::create_dir(&output).unwrap();
+        let cancel = Cancellation::default();
+        let events = RefCell::new(Vec::new());
+        let on_progress = |event| events.borrow_mut().push(event);
+        let control = Control {
+            cancelled: &cancel,
+            progress: &on_progress,
+        };
+        extract_installer(&input, &output, "R16", "1v1 map pack", &control).unwrap();
+        assert_eq!(
+            fs::read(output.join("102plusmaps.big")).unwrap(),
+            b"exact R16 map"
+        );
+        assert_eq!(
+            fs::read(output.join("102scripts.big")).unwrap(),
+            b"matching R16 scripts"
+        );
+        assert_eq!(fs::read_dir(&output).unwrap().count(), 2);
+        assert!(!root.path().join("102Scripts.big").exists());
+        assert_progress(&events.borrow(), SOLID.len() as u64, true);
+        assert_eq!(fs::read_dir(root.path()).unwrap().count(), 2);
+    }
+
+    #[test]
+    fn solid_lzma_rejects_truncation_trailing_data_and_excessive_dictionaries() {
+        let mut trailing = SOLID.to_vec();
+        trailing.push(0);
+        let mut large_dictionary = SOLID.to_vec();
+        large_dictionary[1..5].copy_from_slice(&u32::MAX.to_le_bytes());
+        for (case, bytes) in [
+            ("truncated", &SOLID[..SOLID.len() - 2]),
+            ("trailing", trailing.as_slice()),
+            ("dictionary", large_dictionary.as_slice()),
+        ] {
+            let root = tempfile::tempdir().unwrap();
+            let input = solid_installer(root.path(), bytes, SOLID_HEADER);
+            let output = root.path().join("content");
+            fs::create_dir(&output).unwrap();
+            let cancel = Cancellation::default();
+            let events = RefCell::new(Vec::new());
+            let on_progress = |event| events.borrow_mut().push(event);
+            let control = Control {
+                cancelled: &cancel,
+                progress: &on_progress,
+            };
+            assert!(
+                extract_installer(&input, &output, "R16", "1v1 map pack", &control).is_err(),
+                "Accepted {case} stream"
+            );
+            assert!(events
+                .borrow()
+                .iter()
+                .all(|e: &Progress| e.total != Some(e.completed)));
+            assert_eq!(fs::read_dir(root.path()).unwrap().count(), 2);
+        }
+    }
+
+    #[test]
+    fn solid_lzma_honors_cancellation_during_decode() {
+        let root = tempfile::tempdir().unwrap();
+        let input = solid_installer(root.path(), SOLID, SOLID_HEADER);
+        let output = root.path().join("content");
+        fs::create_dir(&output).unwrap();
+        let cancel = Cancellation::default();
+        let on_progress = |event: Progress| {
+            if event.completed > 0 {
+                cancel.cancel();
+            }
+        };
+        let control = Control {
+            cancelled: &cancel,
+            progress: &on_progress,
+        };
+        assert!(
+            extract_installer(&input, &output, "R16", "1v1 map pack", &control)
+                .unwrap_err()
+                .to_string()
+                .contains("cancelled")
+        );
+        assert_eq!(fs::read_dir(&output).unwrap().count(), 0);
+        assert_eq!(fs::read_dir(root.path()).unwrap().count(), 2);
+    }
 
     fn deflated(bytes: &[u8]) -> Vec<u8> {
         let mut encoder =

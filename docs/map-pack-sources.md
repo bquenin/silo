@@ -1,6 +1,6 @@
 # Historical map pack sources
 
-Checked 2026-09-19. **459 distinct source links**, including **379 public ZIP downloads whose headers were verified**. Command Post was queried for 402 registered pack versions.
+Checked 2026-09-19. **460 distinct source links**, including **380 public ZIP downloads whose headers were verified**. Command Post was queried for 402 registered pack versions.
 
 A header check confirms that a public URL returned ZIP bytes; it does not validate the whole archive or prove replay compatibility. Unavailable links remain in the catalogue as research leads. Login pages and transient failures are not proof that a pack no longer exists.
 
@@ -14,7 +14,27 @@ The catalogue embeds only shareable URLs. Downloading these files does not requi
 
 Metadata provenance: [Command Post public metadata ZIP](https://corefiles1.s3.eu-central-1.amazonaws.com/metadata.zip) and the Command Post `fetch_files.php` registry, queried by exact `metapack_name` and `meta_version_id`. The version identifier also supplies the map archive name: for example R20e uses `R201v1Maps.big`, while R21h uses `R21g1v1Maps.big`. Internal asset paths still determine the exact map revision.
 
-Installer support covers ZIPs containing BIG files, Unicode non-solid DEFLATE NSIS, and Unicode chunked LZMA NSISBI. Other installer layouts fail without being executed. Not every historical pack listed here has been fully extracted or replay-tested.
+Installer support covers ZIPs containing BIG files, ANSI/Unicode solid LZMA NSIS, Unicode non-solid DEFLATE NSIS, and Unicode chunked LZMA NSISBI. Other installer layouts fail without being executed. Not every historical pack listed here has been fully extracted or replay-tested.
+
+## R16
+
+Command Post labels this release **R16 Beta**. Its actual map assets use the `__16` suffix recorded by R16 replays. The three verified standard pack records explicitly map to R16; other beta labels remain excluded until their assets are verified. The installers use an ANSI NSIS header and solid LZMA compression.
+
+Each installer contains its main `102plusmaps*.big` archive, a companion `102plusmaps*A.big` archive, and matching scripts. Tacitus includes both map archives from that exact package. This covers companion maps such as Smashed Decision, Forgotten Forest and Tiberian Dunes. A previously cached pack missing its companion archive no longer suppresses the download of a missing map.
+
+| Pack | Command Post link | Public ZIP size |
+| --- | --- | ---: |
+| 1v1 | [Download](https://cgf-uploads.fra1.cdn.digitaloceanspaces.com/files/1.02+/R16%20Beta/KWCommunityPatch102PlusMaps_R16.zip) | 321,025,614 bytes |
+| 2v2 | [Download](https://cgf-uploads.fra1.cdn.digitaloceanspaces.com/files/1.02+/R16%20Beta/KWCommunityPatch102PlusMaps2_R16.zip) | 170,328,550 bytes |
+| 4v4 | [Download](https://cgf-uploads.fra1.cdn.digitaloceanspaces.com/files/1.02+/R16%20Beta/KWCommunityPatch102PlusMaps3_R16.zip) | 169,458,219 bytes |
+
+## R18f 4v4
+
+Command Post registry link 809, registered as R18f, points to an R18d ZIP whose map assets use `__18`. Tacitus excludes that link for R18f and uses the [correct R18f ZIP on the same Command Post CDN](https://cgf-uploads.fra1.cdn.digitaloceanspaces.com/files/1.02+/R18f/KWCommunityPatch102PlusMaps3_R18f.zip). The corrected path follows the installer filename in Command Post version `61f8aa314ec59`.
+
+The 251,672,113-byte ZIP was fully downloaded and extracted. Its `102plusmaps3_18.big` contains 40 exact `__18f` map assets and matches the MD5 recorded in Command Post metadata: `1f63b5e1ac0a3859df1a2c2d222a1117`. Matching scripts come from the same installer. Tacitus successfully prepared `4_vs_4-367542da1019e4a6.KWReplay` (Tiberian Gardens VIII) with these assets. The pack covers all seven R18f large-map replays in the checked catalogue. These checks prepare content without starting the game.
+
+ZIP SHA-256: `7cff6da9368c02c0d85ff497b7c850f7c5444d879fd355a2bd53d23d013985b8`.
 
 ## R20e
 
@@ -248,7 +268,8 @@ The 1v1 ZIP SHA-256 is `7c0ab9ddfd58cd5b44b134a19eea01ff6b3fa90d2e232dab033d46ed
 | R18c (test) | 4v4 | [Download](https://cgf-uploads.fra1.cdn.digitaloceanspaces.com/files/1.02+/R18c/KWCommunityPatch102PlusMaps3_R18c.zip) | ZIP header verified |
 | R18d (test) | 4v4 | [Download](https://cgf-uploads.fra1.cdn.digitaloceanspaces.com/files/1.02+/R18d/KWCommunityPatch102PlusMaps3_R18d.zip) | ZIP header verified |
 | R18e | 4v4 | [Download](https://cgf-uploads.fra1.cdn.digitaloceanspaces.com/files/1.02+/R18e/KWCommunityPatch102PlusMaps3_R18e.zip) | ZIP header verified |
-| R18f | 4v4 | [Download](https://cgf-uploads.fra1.cdn.digitaloceanspaces.com/files/1.02+/R18d/KWCommunityPatch102PlusMaps3_R18d.zip) | ZIP header verified |
+| R18f | 4v4 | [Download](https://cgf-uploads.fra1.cdn.digitaloceanspaces.com/files/1.02+/R18f/KWCommunityPatch102PlusMaps3_R18f.zip) | ZIP header verified |
+| R18f | 4v4 | [Download](https://cgf-uploads.fra1.cdn.digitaloceanspaces.com/files/1.02+/R18d/KWCommunityPatch102PlusMaps3_R18d.zip) | Wrong revision (excluded) |
 | R19d (test) | 4v4 | [Download](https://drive.google.com/file/d/1ipODOFADCIHZBG6BxEgL8Fet02_mjEiH/view?usp=sharing) | No ZIP returned |
 | R19e | 4v4 | [Download](https://drive.google.com/file/d/1aHd447ffh7K5s_MoiP3WF8iKpYZxby92/view?usp=sharing) | No ZIP returned |
 | R19f | 4v4 | [Download](https://drive.google.com/file/d/1dxFL1_03ozpS6nEE8EJgslGJvmTar4i3/view?usp=sharing) | No ZIP returned |

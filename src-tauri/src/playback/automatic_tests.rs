@@ -135,6 +135,62 @@ impl Fixture {
 }
 
 #[test]
+fn r16_replay_can_prepare_from_the_verified_command_post_beta_label() {
+    let mut f = Fixture::new();
+    f.target.map_path = "283data/maps/official/map 1.02+__16".into();
+    let report = inspect(&f.target, Some(&f.game), &f.cache);
+    assert!(report.can_play, "{}", report.message);
+    assert_eq!(report.required_revision.as_deref(), Some("R16"));
+    assert!(!f.cache.exists());
+}
+
+#[test]
+fn incomplete_historical_cache_does_not_hide_companion_maps() {
+    let f = Fixture::new();
+    let source = crate::playback::sources::command_post("R16", selection::PackKind::Duel)
+        .remove(0)
+        .source;
+    let cancellation = Cancellation::default();
+    let control = Control {
+        cancelled: &cancellation,
+        progress: &|_| {},
+    };
+    let base = Fixture::asset("16");
+    let companion = "data/maps/official/companion 1.02+__16/companion 1.02+__16.map";
+    for complete in [false, true] {
+        let pending = tempfile::tempdir_in(f._temporary.path()).unwrap();
+        big(&pending.path().join("102plusmaps.big"), &[&base]);
+        big(
+            &pending.path().join("102Scripts.big"),
+            &["data/scripts/scripts.lua"],
+        );
+        if complete {
+            big(&pending.path().join("102plusmapsA.big"), &[companion]);
+        }
+        content::publish(
+            pending.path(),
+            &f.cache,
+            "R16",
+            &source,
+            "package-hash",
+            &control,
+        )
+        .unwrap();
+        assert!(!content::contains_other_map(&f.cache, &source, "R16", companion).unwrap());
+        assert_eq!(
+            content::contains_other_map(&f.cache, &source, "R16", "missing.map").unwrap(),
+            complete
+        );
+        assert_eq!(
+            content::cached(&f.cache, companion, "R16", true, &control)
+                .unwrap()
+                .is_some(),
+            complete
+        );
+    }
+}
+
+#[test]
 fn disabled_local_pack_uses_a_private_config_and_preserves_user_selection() {
     let f = Fixture::new();
     f.local("24g", true);

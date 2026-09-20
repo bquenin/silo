@@ -1454,7 +1454,7 @@
       "set": "102plusmaps",
       "version_id": "61caf73094ec7",
       "version": "R16 Beta",
-      "revision": null,
+      "revision": "R16",
       "kind": "duel",
       "test": false,
       "archive": "102plusmaps.big",
@@ -1474,6 +1474,10 @@
           "filename_header": null,
           "modified": "2024-06-04 01:45:13"
         }
+      ],
+      "revision_note": "Command Post calls this release R16 Beta; its installed map assets use the __16 replay suffix.",
+      "additional_archives": [
+        "102plusmapsA.big"
       ]
     },
     {
@@ -3895,7 +3899,7 @@
       "set": "102plusmaps2",
       "version_id": "61caf730a1f8b",
       "version": "R16 Beta",
-      "revision": null,
+      "revision": "R16",
       "kind": "two_vs_two",
       "test": false,
       "archive": "102plusmaps2.big",
@@ -3915,6 +3919,10 @@
           "filename_header": null,
           "modified": "2024-06-04 01:45:38"
         }
+      ],
+      "revision_note": "Command Post calls this release R16 Beta; its installed map assets use the __16 replay suffix.",
+      "additional_archives": [
+        "102plusmaps2A.big"
       ]
     },
     {
@@ -6187,7 +6195,7 @@
       "set": "102plusmaps3",
       "version_id": "61caf730af79c",
       "version": "R16 Beta",
-      "revision": null,
+      "revision": "R16",
       "kind": "large",
       "test": false,
       "archive": "102plusmaps3.big",
@@ -6207,6 +6215,10 @@
           "filename_header": null,
           "modified": "2024-06-04 01:45:53"
         }
+      ],
+      "revision_note": "Command Post calls this release R16 Beta; its installed map assets use the __16 replay suffix.",
+      "additional_archives": [
+        "102plusmaps3A.big"
       ]
     },
     {
@@ -6324,18 +6336,34 @@
       "installer": "KWCommunityPatch102PlusMaps3_R18f.exe",
       "links": [
         {
+          "id": null,
+          "name": "1.02+ Map Pack 3 R18f (corrected CDN path)",
+          "url": "https://cgf-uploads.fra1.cdn.digitaloceanspaces.com/files/1.02+/R18f/KWCommunityPatch102PlusMaps3_R18f.zip",
+          "download_url": "https://cgf-uploads.fra1.cdn.digitaloceanspaces.com/files/1.02+/R18f/KWCommunityPatch102PlusMaps3_R18f.zip",
+          "provider": "Command Post CDN",
+          "priority": 0,
+          "disabled": false,
+          "login_required": false,
+          "status": "zip_header_verified",
+          "bytes": 251672113,
+          "filename_header": null,
+          "notes": "Corrected the registry path using the R18f directory and installer filename from Command Post version 61f8aa314ec59. Fully downloaded and extracted; 40 exact __18f maps and matching scripts. Map archive MD5 matches Command Post metadata: 1f63b5e1ac0a3859df1a2c2d222a1117. Prepared Tiberian Gardens VIII replay 4_vs_4-367542da1019e4a6.KWReplay.",
+          "sha256": "7cff6da9368c02c0d85ff497b7c850f7c5444d879fd355a2bd53d23d013985b8"
+        },
+        {
           "id": "809",
           "name": "1.02+ Map Pack 3 R18f",
           "url": "https://cgf-uploads.fra1.cdn.digitaloceanspaces.com/files/1.02+/R18d/KWCommunityPatch102PlusMaps3_R18d.zip",
           "download_url": "https://cgf-uploads.fra1.cdn.digitaloceanspaces.com/files/1.02+/R18d/KWCommunityPatch102PlusMaps3_R18d.zip",
           "provider": "",
           "priority": 0,
-          "disabled": false,
+          "disabled": true,
           "login_required": false,
-          "status": "zip_header_verified",
+          "status": "wrong_revision",
           "bytes": 232245316,
           "filename_header": null,
-          "modified": "2024-06-04 02:10:43"
+          "modified": "2024-06-04 02:10:43",
+          "notes": "Command Post registry link 809 points to R18d; its map assets use __18 and cannot satisfy R18f replays."
         }
       ]
     },

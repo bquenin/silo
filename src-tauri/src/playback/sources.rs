@@ -18,6 +18,8 @@ struct Version {
     kind: Option<PackKind>,
     test: bool,
     archive: Option<String>,
+    #[serde(default)]
+    additional_archives: Vec<String>,
     links: Vec<Link>,
 }
 
@@ -70,9 +72,28 @@ pub fn map_archive(name: &str, revision: &str) -> bool {
         matches(version, revision)
             && version
                 .archive
-                .as_deref()
-                .is_some_and(|a| a.eq_ignore_ascii_case(name))
+                .iter()
+                .chain(&version.additional_archives)
+                .any(|a| a.eq_ignore_ascii_case(name))
     })
+}
+
+/// An older cache may have been published before companion archives were
+/// recognized. Its missing map must not suppress a complete download forever.
+pub fn complete_map_archives(source: &str, revision: &str, names: &[&str]) -> bool {
+    catalogue()
+        .versions
+        .iter()
+        .filter(|version| {
+            matches(version, revision) && version.links.iter().any(|l| l.url == source)
+        })
+        .all(|version| {
+            version
+                .archive
+                .iter()
+                .chain(&version.additional_archives)
+                .all(|required| names.iter().any(|name| name.eq_ignore_ascii_case(required)))
+        })
 }
 
 pub struct Candidate {
@@ -138,6 +159,42 @@ mod tests {
         assert!(!map_archive("R211v1Maps.big", "R20e"));
         assert!(!available("R20e Beta"));
         assert!(command_post("R20e/../../", PackKind::Duel).is_empty());
+    }
+
+    #[test]
+    fn verified_r16_release_label_matches_its_replay_revision() {
+        for (kind, archive) in [
+            (PackKind::Duel, "102plusmaps.big"),
+            (PackKind::TwoVsTwo, "102plusmaps2.big"),
+            (PackKind::Large, "102plusmaps3.big"),
+        ] {
+            let links = command_post("R16", kind);
+            assert_eq!(links.len(), 1);
+            assert_eq!(
+                links[0].url.host_str(),
+                Some("cgf-uploads.fra1.cdn.digitaloceanspaces.com")
+            );
+            assert!(links[0].url.path().contains("R16%20Beta/"));
+            assert!(map_archive(archive, "R16"));
+        }
+        assert!(available("R16"));
+        // Other beta labels have not been established as replay revisions.
+        assert!(!available("R15"));
+        assert!(!available("R16 Beta"));
+        assert!(command_post("R16b", PackKind::Duel).is_empty());
+        assert!(map_archive("102plusmapsA.big", "R16"));
+        assert!(!map_archive("102plusmaps4.big", "R16"));
+    }
+
+    #[test]
+    fn r18f_large_pack_excludes_the_mislabeled_r18d_registry_link() {
+        let links = command_post("R18f", PackKind::Large);
+        assert_eq!(links.len(), 1);
+        assert!(links[0].url.path().contains(
+            "/R18f/KWCommunityPatch102PlusMaps3_R18f.zip"
+        ));
+        assert!(!links[0].url.path().contains("R18d"));
+        assert!(map_archive("102plusmaps3_18.big", "R18f"));
     }
 
     #[test]
