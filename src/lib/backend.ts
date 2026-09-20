@@ -1,7 +1,7 @@
 // Tauri command bridge. All types match the Rust serde shapes in
 // src-tauri/src/db/mod.rs and src-tauri/src/ingest.rs.
 
-import { invoke } from '@tauri-apps/api/core';
+import { Channel, invoke } from '@tauri-apps/api/core';
 
 export interface BackendPlayerSummary {
   slot: number;
@@ -57,37 +57,43 @@ export async function ingestPath(path: string): Promise<IngestReport> {
 }
 
 export interface PlaybackSettings {
-  sku_path: string | null;
+  game_path: string | null;
 }
 
-export type PlaybackStatus = 'ready' | 'not_configured' | 'replay_missing'
-  | 'engine_mismatch' | 'map_missing' | 'map_disabled' | 'unknown';
-
 export interface PlaybackReport {
-  replay_id: number;
-  status: PlaybackStatus;
+  can_play: boolean;
   message: string;
-  map_name: string;
-  map_path: string;
-  recorded_crc: string;
   required_revision: string | null;
-  sku_path: string | null;
-  providers: { path: string; enabled: boolean }[];
-  warnings: string[];
+  game_path: string | null;
+  details: string[];
+}
+
+export interface PlaybackProgress {
+  phase: 'checking' | 'locating' | 'downloading' | 'extracting' | 'verifying' | 'preparing' | 'launching';
+  message: string;
+  downloaded: number;
+  total: number | null;
 }
 
 export async function playbackSettings(): Promise<PlaybackSettings> {
   return invoke('playback_settings');
 }
 
-export async function setPlaybackConfig(path: string): Promise<PlaybackSettings> {
-  return invoke('set_playback_config', { path });
+export async function setGameInstallation(path: string): Promise<PlaybackSettings> {
+  return invoke('set_game_installation', { path });
 }
 
 export async function checkPlayback(replayId: number): Promise<PlaybackReport> {
   return invoke('check_playback', { replayId });
 }
 
-export async function launchReplay(replayId: number): Promise<{ pid: number }> {
-  return invoke('launch_replay', { replayId });
+export async function launchReplay(replayId: number, requestId: string,
+  onProgress: (progress: PlaybackProgress) => void): Promise<{ pid: number }> {
+  const channel = new Channel<PlaybackProgress>();
+  channel.onmessage = onProgress;
+  return invoke('launch_replay', { replayId, requestId, onProgress: channel });
+}
+
+export async function cancelPlayback(requestId: string): Promise<boolean> {
+  return invoke('cancel_playback', { requestId });
 }

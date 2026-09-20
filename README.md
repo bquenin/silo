@@ -11,8 +11,9 @@ you search, filter, and re-watch them via the live engine.
 ## Status
 
 **Pre-alpha.** The desktop app imports replays into a SQLite catalogue,
-parses players/factions, and can launch a replay after checking its exact
-map revision against an installed game configuration. Browser previews use
+parses players/factions, and prepares replay playback with the exact map revision,
+a local content cache, and automatic downloads for supported packs. Each replay
+uses a temporary content configuration that preserves the user's selection. Browser previews use
 mock data. See [replay launcher](docs/replay-launcher.md) for setup,
 compatibility limits, and CLI commands.
 
@@ -32,9 +33,10 @@ with structured JSON output.
   hash carries a faction prefix)
 - **Search/filter** by player, faction (including resolved Random),
   map, opponent, year, duration, tag
-- **Map-pack awareness** — check the exact revision against enabled archives;
-  distinguish missing maps from installed but disabled packs
-- **Playback** — launch replays through a selected game configuration
+- **Map-pack awareness** — reuse installed or cached revisions and download
+  missing supported packs with their matching scripts
+- **Playback** — one Play action prepares a temporary configuration with the
+  replay's required map and scripts, then starts the game
 - **CLI** with `--json` output for importing and searching replays
 
 ## Stack
@@ -48,7 +50,7 @@ with structured JSON output.
 ## Dev
 
 Requires:
-- Rust toolchain (`rustup` ≥ 1.80)
+- Current stable Rust toolchain, installed with `rustup`
 - Node.js LTS
 
 ```sh

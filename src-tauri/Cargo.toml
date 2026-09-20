@@ -29,6 +29,23 @@ sha2 = "0.10"
 rusqlite = { version = "0.32", features = ["bundled", "chrono"] }
 walkdir = "2"
 dunce = "1"
+regex = "1"
+reqwest = { version = "0.13", default-features = false, features = ["rustls"] }
+tempfile = "3"
+tokio = { version = "1", features = ["rt", "time", "macros"] }
+zip = { version = "8", default-features = false, features = ["deflate-flate2-zlib-rs"] }
+lzma-rust2 = { version = "0.20", default-features = false, features = ["std"] }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Diagnostics_ToolHelp"] }
+
+# Historical packs expand to several GiB; keep decompression usable in dev.
+[profile.dev.package.lzma-rust2]
+opt-level = 3
+
+# The streaming decoder is generic and is instantiated in this crate.
+[profile.dev.package.tacitus]
+opt-level = 1
+
+[profile.dev.package.sha2]
+opt-level = 3

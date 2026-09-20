@@ -21,6 +21,76 @@ fn local_path(parent: &Path, value: &str) -> PathBuf {
     parent.join(value.replace('\\', "/"))
 }
 
+/// Build a stock content chain without reading the user's community-patch
+/// selection. Only game-owned base/language config files are followed.
+pub fn base(root: &Path, version: [u32; 4]) -> Result<GameConfig> {
+    ensure!(
+        version[0] == 1 && (version[1] <= 2) && version[2..] == [0, 0],
+        "This replay requires an unsupported game engine version."
+    );
+    let root = dunce::canonicalize(root).context("The game folder is unavailable")?;
+    let version = format!("{}.{}", version[0], version[1]);
+    let executable = root.join("RetailExe").join(&version).join("cnc3ep1.dat");
+    ensure!(
+        executable.is_file(),
+        "Game version {version} is not installed in this folder."
+    );
+    let mut languages: Vec<_> = fs::read_dir(&root)?
+        .filter_map(|e| e.ok())
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .filter(|n| {
+            n.starts_with("Lang-") && root.join(n).join(&version).join("config.txt").is_file()
+        })
+        .collect();
+    languages.sort_by_key(|n| (n != "Lang-english", n.clone()));
+    let language = languages
+        .first()
+        .context("The game's language files are missing. Repair the game installation.")?;
+    let audio_name = format!("{}Audio", language.trim_start_matches("Lang-"));
+    let audio = fs::read_dir(&root)?
+        .filter_map(|e| e.ok())
+        .find(|e| {
+            e.file_name()
+                .to_string_lossy()
+                .eq_ignore_ascii_case(&audio_name)
+        })
+        .map(|e| e.file_name())
+        .context("The game's audio files are missing.")?;
+    let layers = [
+        root.join(language).join(&version),
+        root.join(audio).join(&version),
+        root.join("Core").join(&version),
+        root.join("Meta").join(&version),
+        root.join("RetailExe").join(&version),
+        root.join("Movies/1.0"),
+    ];
+    let mut config = GameConfig {
+        sku: PathBuf::new(),
+        root,
+        executable,
+        archives: Vec::new(),
+        search_paths: Vec::new(),
+        warnings: Vec::new(),
+    };
+    let mut active = HashSet::new();
+    let mut visited = HashSet::new();
+    for layer in layers {
+        walk(
+            &layer.join("config.txt"),
+            &mut config,
+            &mut active,
+            &mut visited,
+            0,
+        )
+        .context("The game's base files could not be loaded. Repair the game installation.")?;
+    }
+    ensure!(
+        !config.archives.is_empty(),
+        "The game's base content archives are missing."
+    );
+    Ok(config)
+}
+
 pub fn read(sku: &Path) -> Result<GameConfig> {
     let sku = dunce::canonicalize(sku).context("Choose an existing game .SkuDef configuration")?;
     ensure!(

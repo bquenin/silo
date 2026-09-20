@@ -1,83 +1,137 @@
-# Replay launcher
+# Replay playback
 
-Tacitus checks a catalogue replay against an existing Kane's Wrath `.SkuDef`
-configuration before offering Play. Select the play icon on a replay row to
-see its required map revision, availability, and game configuration. The
-default Steam English 1.2 configuration is detected when present; use **Choose
-configuration** for another installation, language, or version.
+Click **Play** on a replay. Tacitus finds the game, checks installed and cached
+content, downloads missing supported content, and launches Kane's Wrath.
+There is no separate download action or configuration-file picker. Progress
+and cancellation are available during preparation; a failed attempt can be
+retried with the same Play button. If detection fails, choose the game folder.
 
-The selection is saved beside the catalogue in `launcher.json`. Choosing a
-configuration does not modify the game's files. After installing or enabling
-a required pack through your usual map manager, use **Check again**.
+Steam's default and additional libraries and common EA/Origin installation
+folders are searched. The selected folder is saved beside the catalogue in
+`launcher.json`. Older `sku_path` settings are migrated in memory to their
+containing game folder, without rewriting the old settings just by reading them.
 
-## Compatibility decisions
+## Content resolution
 
-| Status | Meaning |
-|---|---|
-| Ready to launch | Engine version matches, exactly one enabled source contains the exact map asset, and required community scripts are present. |
-| Map revision missing | No scanned archive provides the exact `.map` entry. A newer revision or thumbnail does not satisfy it. |
-| Installed but disabled | The map is in an archive on disk, but that archive is outside the selected configuration's content chain. |
-| Different engine version | The selected `RetailExe/<version>/cnc3ep1.dat` does not match the replay header. |
-| Compatibility needs verification | Unsupported/custom map path, community map without a revision suffix, conflicting providers, unreadable active archives/configuration, or missing community scripts. |
+A replay's internal map path identifies the exact asset and revision. The
+three-hex-digit replay prefix (such as `283`) is removed and separators/case
+are normalized, while the complete directory and revision suffix are retained.
+A thumbnail, display name, `FakeMapID`, newer patch, or recorded `MC=` value
+cannot substitute for that asset. The recorded CRC is not treated as a unique
+file checksum.
 
-The checker follows nested `add-config` directives relative to each containing
-file, indexes `add-big` archives, and checks loose assets under explicit
-`add-search-path` directories. It also indexes other installed `.big` files
-to identify disabled packs. BIGF/BIG4 payloads are not extracted; only bounded
-archive directories are read.
+Resolution checks the persistent cache and then installed BIG archives,
+including packs disabled in the user's current configuration. An installed
+community map needs a revision-named script archive containing
+`data/scripts/scripts.lua`; a shared installed `102Scripts.big` alone cannot
+establish which historical patch it belongs to.
 
-Replay `M=` values commonly have a three-hex-digit prefix, such as `283`.
-Matching strips that prefix, normalizes case/separators, and preserves the
-entire map directory, including `__24g`, `__23z`, etc. Only an exact `.map`
-entry counts. `map_id` is not an identity key: real replays commonly contain
-`FakeMapID`. Display names can be localized and do not identify revisions.
+When content is missing, the kaneswrath.com version lists are searched for
+the exact R22–R25 revision, across 1v1, 2v2, 4v4, legacy and combined pack pages. Missing
+historical downloads fail explicitly; Tacitus never substitutes the latest
+version. Download support also depends on the available package format:
+direct BIG files in ZIPs and the Unicode, non-solid LZMA NSISBI layout used
+by the R24g pack are supported. Other layouts fail without running installers.
 
-**Verification limits:** Ready means the supported preflight checks passed,
-not that deterministic replay playback has been proven. The original `MC=`
-value is shown but not recomputed: many community maps share revision markers
-(for example `19`), so it must not be treated as an ordinary unique file CRC.
-The checker requires an enabled `102Scripts.big` or `R<revision>Scripts.big`
-containing `data/scripts/scripts.lua` for community maps, and names the
-identified provider in the report. Stock `Core/Misc.big`, unrelated archives,
-and unidentified loose scripts cannot satisfy this check. It does not verify
-the scripts' exact revision or all transitive asset dependencies. Custom user maps and older
-community maps lacking explicit revision paths remain unknown. Missing
-configuration references appear in the detailed report; absent unrelated
-packs do not by themselves hide an available map.
+The extractor reads the installer as data and selects the revision's map
+archives, scripts and community texture archive from its Patch103 payload.
+It does not execute installer instructions, plugins, replacement engines or
+configuration changes. Extraction has bounds on file counts, offsets, memory,
+expanded sizes and output paths. No external extraction program is required.
 
-## Launch behavior
+## Cache and temporary sessions
 
-Play repeats the compatibility check and verifies the replay file's SHA-256
-against the catalogue. It starts the selected engine directly with separate
-arguments, preserving paths with spaces, Unicode, or `#`:
+The default cache is `%LOCALAPPDATA%\tacitus\playback`:
+
+- `packages/pack-*/`: complete extracted replay-content archives and an index
+  containing the source URL, exact revision, download SHA-256, archive sizes,
+  archive SHA-256 values and internal asset paths.
+- `downloads/`: complete, hashed ZIPs retained if extraction fails, avoiding
+  another large download on retry. Successful publication removes that copy.
+- `staging/`: incomplete extraction/download work, excluded from resolution.
+- `sessions/replay-*/`: generated configuration for a particular launch.
+
+Revisions coexist in separate package directories. Before playback, cached
+archives are checked against their stored hashes. Incomplete or corrupt
+packages are not launch candidates. Hashes detect subsequent corruption;
+the original download's provenance is the provider's HTTPS endpoint, not
+an independently signed publisher manifest. Once cached, playback does not
+contact the provider.
+
+Downloads hold an OS file lock on the cache to prevent overlapping writers.
+After a crash, the next download removes only marked abandoned staging
+folders while holding that lock. Unmarked folders are left alone.
+
+The temporary configuration mounts the resolved replay content ahead of the
+installed base-game, language and audio layers. It does not read the user's
+top-level patch selection or write the game's SkuDef, Patch103 configuration
+or installed packs. Paths to borrowed archives remain in their original
+locations. Unsupported custom maps, unidentified community revisions and
+missing engine/base content produce an explanation instead of guessing.
+
+The game is started directly, in its installation directory:
 
 ```text
-cnc3ep1.dat -replayGame <absolute replay path> -win -config <absolute SkuDef>
+cnc3ep1.dat -replayGame <absolute replay path> -win -config <temporary SkuDef>
 ```
 
-The working directory is the game root. An already running KW process blocks
-another launch. Tacitus does not kill games or automatically close playback.
-The start result reports a process ID, not successful loading of the replay.
-Imports store absolute replay paths. Reimport the original folder to update
-paths in catalogue entries created by an older version using relative paths.
+The replay SHA-256 is checked against the catalogue before preparation.
+A running KW process blocks another launch, and that check is repeated after
+preparation. Launch arguments remain separate to preserve spaces, Unicode
+and special characters.
+
+Tacitus retains the session until the game exits. If Tacitus exits first,
+the generated files remain available to the game; the next Play recovers
+marked stale sessions once no KW process is running. Cleanup never removes
+cached or borrowed content. This isolates content selection, **not** the
+game's ordinary preferences, logs or profile writes.
 
 The game process inherits the user's environment. Tacitus does not terminate
 existing game processes or clear their logs.
 
+A successful launch reports a process ID. It does not prove that every
+supported replay remains deterministic through its entire duration.
+
 ## CLI
 
 ```powershell
-cargo run --manifest-path src-tauri/Cargo.toml --bin tacitus-cli -- check 123 --json
-cargo run --manifest-path src-tauri/Cargo.toml --bin tacitus-cli -- play 123 --dry-run --json
-cargo run --manifest-path src-tauri/Cargo.toml --bin tacitus-cli -- play 123 --sku "C:\Games\KW\CNC3EP1_english_1.2.SkuDef"
+tacitus-cli check 123 --json
+tacitus-cli play 123 --dry-run --json
+tacitus-cli play 123 --game "C:\Games\KW"
+tacitus-cli prepare 123 --offline --json
 ```
 
-`check` and `play --dry-run` emit a compatibility report (including the launch
-plan when ready) without starting a process. Non-ready checks exit nonzero.
-`--sku` overrides the saved selection for that invocation; `--db` selects the
-catalogue as with other commands.
+`check` and `play --dry-run` inspect without downloading or launching. A
+positive report can mean that Play can download missing content.
+`prepare` downloads if needed and retains a temporary launch plan for
+inspection without starting the game; `--offline` forbids downloads.
+`--cache DIR` overrides the cache. `--db` selects the catalogue as usual.
 
-## Verification
+The advanced `--sku FILE` override retains the former manual compatibility
+checker/launcher for diagnostics. It does not use automatic preparation and
+cannot be combined with `--game`, `--offline` or `prepare`.
 
-Archive/config fixtures in `src-tauri/tests/playback.rs` exercise
-compatibility without a game install.
+## Implementation references and checks
+
+The [NSISBI project](https://sourceforge.net/projects/nsisbi/), NSIS's
+`Source/exehead/fileform.h`, and the
+[NSISExtractor format notes](https://github.com/KokerZhou/NSISExtractor/blob/main/docs/nsis-format-notes.md)
+inform the bounded installer reader. The historical source is the
+[R24 1v1 map pack version list](https://kaneswrath.com/download/r24-1vs1-map-pack/).
+
+Tests cover exact revisions, disabled local packs, offline reuse, concurrent
+cached revisions, shared-script ambiguity, corrupt and incomplete caches,
+truncated HTTP responses, cancellation during HTTP waits and preparation,
+bounded extraction, path containment, settings migration, stale-session
+ownership, and the one-action frontend flow. Legacy checker fixtures remain
+in `src-tauri/tests/playback.rs`.
+
+On 2026-09-19, the R24g 1v1 ZIP was downloaded from the historical version
+list and extracted without executing its installer. Catalogue replay 1153
+(`[R24] Abandoned Subway`) prepared again offline and reached active replay
+playback with a temporary config outside the game directory. The CLI had
+exited while its session remained
+available to the game. The test copy was then closed. All 37 game configuration
+files matched their pre-test SHA-256 values. This was a brief loading/playback
+check, not a full-duration determinism test; further live testing was deferred
+at the user's request.

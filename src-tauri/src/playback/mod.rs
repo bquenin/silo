@@ -2,15 +2,21 @@
 //! See docs/replay-launcher.md for compatibility checks and verification limits.
 
 mod archive;
+pub mod automatic;
 mod config;
+mod content;
+mod download;
+mod installation;
+mod package;
+
+pub use installation::{load_settings, save_settings, settings_path, Settings};
 
 use std::collections::HashSet;
-use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use anyhow::{ensure, Context, Result};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use walkdir::WalkDir;
 
 #[derive(Debug, Clone, Serialize)]
@@ -22,41 +28,6 @@ pub struct ReplayTarget {
     pub map_path: String,
     pub map_crc: String,
     pub version: [u32; 4],
-}
-
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
-pub struct Settings {
-    pub sku_path: Option<PathBuf>,
-}
-
-pub fn settings_path() -> PathBuf {
-    crate::ingest::default_catalogue_path().with_file_name("launcher.json")
-}
-
-pub fn load_settings() -> Result<Settings> {
-    let path = settings_path();
-    if path.is_file() {
-        return serde_json::from_slice(&fs::read(path)?).context("Read launcher settings");
-    }
-    // Other installs/languages can be selected explicitly in the UI.
-    let sku_path = std::env::var_os("ProgramFiles(x86)")
-        .map(PathBuf::from)
-        .map(|p| p.join("Steam/steamapps/common/Command and Conquer 3 - Kane's Wrath/CNC3EP1_english_1.2.SkuDef"))
-        .filter(|p| p.is_file());
-    Ok(Settings { sku_path })
-}
-
-pub fn save_settings(sku: &Path) -> Result<Settings> {
-    let game = config::read(sku)?;
-    let settings = Settings {
-        sku_path: Some(game.sku),
-    };
-    let path = settings_path();
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-    fs::write(path, serde_json::to_vec_pretty(&settings)?)?;
-    Ok(settings)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]

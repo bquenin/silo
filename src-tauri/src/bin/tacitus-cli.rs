@@ -32,7 +32,7 @@
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, ensure, Context, Result};
 
 use tacitus_lib::db::Db;
 use tacitus_lib::ingest;
@@ -85,8 +85,7 @@ fn run(args: &[String]) -> Result<()> {
         "count" => cmd_count(&db_path, json),
         "parse" => cmd_parse(&rest, json),
         "stats" => cmd_stats(&db_path, json),
-        "check" => cmd_playback(&db_path, &rest, json, false),
-        "play" => cmd_playback(&db_path, &rest, json, true),
+        "check" | "play" | "prepare" => cmd_playback(&db_path, &rest, json, &subcmd),
         "backfill-duration" => cmd_backfill_duration(&db_path, json),
         other => Err(anyhow!("unknown subcommand: {}", other)),
     }
@@ -108,9 +107,16 @@ SUBCOMMANDS:
     parse <FILE>        Parse one file; print map + players + factions
     parse --full FILE   Same as parse, but also resolve Random factions
     stats               Per-faction / per-matchup corpus aggregates
-    check ID [--sku FILE] Check a replay's exact map revision and game config
-    play ID [--sku FILE]  Check compatibility, then launch the replay
-                         Add --dry-run to print the launch plan without launching
+    check ID [--game DIR] Inspect replay content without downloading
+    play ID [--game DIR]  Prepare missing content and launch the replay
+    prepare ID           Prepare a temporary launch plan without starting KW
+
+Playback options:
+    --game DIR          Override the detected/saved game folder
+    --cache DIR         Override the replay-content cache directory
+    --offline           Prepare using installed/cached content only
+    --dry-run           Inspect without preparing or launching
+    --sku FILE          Legacy manual check/play through an explicit config
 
 SEARCH FLAGS (combinable):
     --player NAME       substring match on any player.name (case-insensitive)
@@ -161,14 +167,17 @@ fn cmd_import(db_path: &PathBuf, rest: &[&str], json: bool) -> Result<()> {
     Ok(())
 }
 
-fn cmd_playback(db_path: &PathBuf, rest: &[&str], json: bool, play: bool) -> Result<()> {
+fn cmd_playback(db_path: &PathBuf, rest: &[&str], json: bool, action: &str) -> Result<()> {
     use tacitus_lib::playback;
     let id: i64 = rest
         .first()
-        .context("usage: tacitus check|play ID [--sku FILE] [--dry-run]")?
+        .context("usage: tacitus check|play|prepare ID [--game FOLDER] [--cache FOLDER] [--dry-run] [--offline]")?
         .parse()?;
     let mut sku = None;
-    let mut dry_run = !play;
+    let mut dry_run = action == "check";
+    let mut game_path = None;
+    let mut cache = playback::automatic::cache_root();
+    let mut offline = false;
     let mut i = 1;
     while i < rest.len() {
         match rest[i] {
@@ -179,14 +188,73 @@ fn cmd_playback(db_path: &PathBuf, rest: &[&str], json: bool, play: bool) -> Res
                 ));
             }
             "--dry-run" => dry_run = true,
+            "--game" => {
+                i += 1;
+                game_path = Some(PathBuf::from(rest.get(i).context("--game needs a folder")?));
+            }
+            "--cache" => {
+                i += 1;
+                cache = PathBuf::from(rest.get(i).context("--cache needs a folder")?);
+            }
+            "--offline" => offline = true,
             flag => return Err(anyhow!("unknown playback flag: {flag}")),
         }
         i += 1;
     }
-    if sku.is_none() {
-        sku = playback::load_settings()?.sku_path;
-    }
+    ensure!(
+        sku.is_none() || (action != "prepare" && game_path.is_none() && !offline),
+        "Use --game for automatic preparation; --sku is only a manual check/play override."
+    );
     let target = Db::open(db_path)?.replay_target(id)?;
+    if sku.is_none() {
+        let game_path = game_path.or(playback::load_settings()?.game_path);
+        if dry_run {
+            let report = playback::automatic::inspect(&target, game_path.as_deref(), &cache);
+            if json {
+                println!("{}", serde_json::to_string_pretty(&report)?);
+            } else {
+                println!("{}", report.message);
+            }
+            return ensure_ready(report.can_play);
+        }
+        let game_path = game_path.context("Choose the game folder with --game FOLDER")?;
+        let cancelled = playback::automatic::Cancellation::default();
+        let progress = |event: playback::automatic::Progress| {
+            if !json {
+                eprintln!(
+                    "{} {}{}",
+                    event.message,
+                    event.downloaded,
+                    event
+                        .total
+                        .map(|n| format!("/{n} bytes"))
+                        .unwrap_or_default()
+                );
+            }
+        };
+        let control = playback::automatic::Control {
+            cancelled: &cancelled,
+            progress: &progress,
+        };
+        if action == "prepare" {
+            let plan =
+                playback::automatic::prepare(&target, &game_path, &cache, !offline, &control)?
+                    .keep();
+            println!("{}", serde_json::to_string_pretty(&plan)?);
+        } else {
+            ensure!(
+                !offline,
+                "Use prepare --offline to prepare without downloading."
+            );
+            let result = playback::automatic::launch(&target, &game_path, &cache, &control)?;
+            if json {
+                println!("{}", serde_json::to_string_pretty(&result)?);
+            } else {
+                println!("Started Kane's Wrath (PID {})", result.pid);
+            }
+        }
+        return Ok(());
+    }
     if !dry_run {
         let result = playback::launch(&target, sku.as_deref())?;
         if json {

@@ -14,6 +14,56 @@ use crate::parser::Replay;
 
 pub struct AppState {
     pub db: Arc<Mutex<Db>>,
+    pub playback_jobs: Arc<Mutex<PlaybackJobs>>,
+}
+
+#[derive(Default)]
+pub struct PlaybackJobs {
+    active: Option<(String, Arc<playback::automatic::Cancellation>)>,
+    cancelled: std::collections::VecDeque<String>,
+}
+
+impl PlaybackJobs {
+    fn start(&mut self, id: &str) -> Result<Arc<playback::automatic::Cancellation>, String> {
+        if let Some(index) = self.cancelled.iter().position(|cancelled| cancelled == id) {
+            self.cancelled.remove(index);
+            return Err("Replay preparation cancelled.".into());
+        }
+        if self.active.is_some() {
+            return Err("Another replay is being prepared.".into());
+        }
+        let cancellation = Arc::new(playback::automatic::Cancellation::default());
+        self.active = Some((id.into(), cancellation.clone()));
+        Ok(cancellation)
+    }
+
+    fn cancel(&mut self, id: String) -> bool {
+        if let Some((active, cancellation)) = &self.active {
+            if active == &id {
+                return cancellation.cancel();
+            }
+        }
+        // Cancellation can arrive before the async launch command starts.
+        self.cancelled.push_back(id);
+        while self.cancelled.len() > 64 {
+            self.cancelled.pop_front();
+        }
+        true
+    }
+}
+
+struct PlaybackTicket {
+    id: String,
+    jobs: Arc<Mutex<PlaybackJobs>>,
+}
+impl Drop for PlaybackTicket {
+    fn drop(&mut self) {
+        if let Ok(mut jobs) = self.jobs.lock() {
+            if jobs.active.as_ref().is_some_and(|(id, _)| id == &self.id) {
+                jobs.active = None;
+            }
+        }
+    }
 }
 
 // Locks and disk I/O stay off both the native event loop and async workers.
@@ -72,12 +122,15 @@ async fn count_replays(state: tauri::State<'_, AppState>) -> Result<i64, String>
 }
 
 #[tauri::command]
-fn playback_settings() -> Result<playback::Settings, String> {
-    playback::load_settings().map_err(|e| e.to_string())
+async fn playback_settings() -> Result<playback::Settings, String> {
+    tauri::async_runtime::spawn_blocking(playback::load_settings)
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-async fn set_playback_config(path: String) -> Result<playback::Settings, String> {
+async fn set_game_installation(path: String) -> Result<playback::Settings, String> {
     tauri::async_runtime::spawn_blocking(move || {
         playback::save_settings(std::path::Path::new(&path))
     })
@@ -90,11 +143,15 @@ async fn set_playback_config(path: String) -> Result<playback::Settings, String>
 async fn check_playback(
     state: tauri::State<'_, AppState>,
     replay_id: i64,
-) -> Result<playback::Report, String> {
+) -> Result<playback::automatic::Readiness, String> {
     let target = with_db(state.db.clone(), move |db| db.replay_target(replay_id)).await?;
     tauri::async_runtime::spawn_blocking(move || {
         let settings = playback::load_settings()?;
-        playback::check(&target, settings.sku_path.as_deref())
+        Ok(playback::automatic::inspect(
+            &target,
+            settings.game_path.as_deref(),
+            &playback::automatic::cache_root(),
+        ))
     })
     .await
     .map_err(|e| e.to_string())?
@@ -105,15 +162,60 @@ async fn check_playback(
 async fn launch_replay(
     state: tauri::State<'_, AppState>,
     replay_id: i64,
+    request_id: String,
+    on_progress: tauri::ipc::Channel<playback::automatic::Progress>,
 ) -> Result<playback::LaunchResult, String> {
+    if request_id.is_empty() || request_id.len() > 128 {
+        return Err("Invalid playback request".into());
+    }
+    let cancellation = state
+        .playback_jobs
+        .lock()
+        .map_err(|e| e.to_string())?
+        .start(&request_id)?;
+    let ticket = PlaybackTicket {
+        id: request_id,
+        jobs: state.playback_jobs.clone(),
+    };
     let target = with_db(state.db.clone(), move |db| db.replay_target(replay_id)).await?;
     tauri::async_runtime::spawn_blocking(move || {
+        let _ticket = ticket;
         let settings = playback::load_settings()?;
-        playback::launch(&target, settings.sku_path.as_deref())
+        let progress = |event| {
+            if on_progress.send(event).is_err() {
+                cancellation.cancel();
+            }
+        };
+        let control = playback::automatic::Control {
+            cancelled: &cancellation,
+            progress: &progress,
+        };
+        let game_path = settings
+            .game_path
+            .as_deref()
+            .ok_or_else(|| anyhow::anyhow!("Choose your Kane's Wrath game folder."))?;
+        playback::automatic::launch(
+            &target,
+            game_path,
+            &playback::automatic::cache_root(),
+            &control,
+        )
     })
     .await
     .map_err(|e| e.to_string())?
     .map_err(|e: anyhow::Error| format!("{e:#}"))
+}
+
+#[tauri::command]
+fn cancel_playback(state: tauri::State<'_, AppState>, request_id: String) -> Result<bool, String> {
+    if request_id.is_empty() || request_id.len() > 128 {
+        return Err("Invalid playback request".into());
+    }
+    Ok(state
+        .playback_jobs
+        .lock()
+        .map_err(|e| e.to_string())?
+        .cancel(request_id))
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -122,6 +224,7 @@ pub fn run() {
     let db = Db::open(&catalogue).expect("failed to open catalogue");
     let state = AppState {
         db: Arc::new(Mutex::new(db)),
+        playback_jobs: Arc::new(Mutex::new(PlaybackJobs::default())),
     };
 
     tauri::Builder::default()
@@ -135,10 +238,36 @@ pub fn run() {
             list_replays,
             count_replays,
             playback_settings,
-            set_playback_config,
+            set_game_installation,
             check_playback,
             launch_replay,
+            cancel_playback,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod playback_job_tests {
+    use super::*;
+
+    #[test]
+    fn early_cancel_and_ticket_drop_release_only_the_matching_request() {
+        let jobs = Arc::new(Mutex::new(PlaybackJobs::default()));
+        jobs.lock().unwrap().cancel("early".into());
+        assert!(jobs.lock().unwrap().start("early").is_err());
+        jobs.lock().unwrap().start("first").unwrap();
+        assert!(jobs.lock().unwrap().start("second").is_err());
+        drop(PlaybackTicket {
+            id: "second".into(),
+            jobs: jobs.clone(),
+        });
+        assert!(jobs.lock().unwrap().active.is_some());
+        assert!(jobs.lock().unwrap().cancel("first".into()));
+        drop(PlaybackTicket {
+            id: "first".into(),
+            jobs: jobs.clone(),
+        });
+        assert!(jobs.lock().unwrap().start("second").is_ok());
+    }
 }
