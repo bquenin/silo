@@ -37,7 +37,7 @@ with structured JSON output.
   missing supported packs with their matching scripts
 - **Playback** — one Play action prepares a temporary configuration with the
   replay's required map and scripts, then starts the game
-- **CLI** with `--json` output for importing and searching replays
+- **CLI** for importing, searching, and preparing replays, with `--json` output
 
 ## Stack
 
@@ -72,11 +72,28 @@ npm run build
 cargo test --manifest-path src-tauri/Cargo.toml --all-targets
 ```
 
+The optional real-replay tests use the folder set in `TACITUS_REPLAY_CORPUS`.
+Point it at a local collection of `.kwreplay` files, including matches where
+players chose Random, before running Cargo tests. These tests skip when the
+variable is unset; the remaining tests use self-contained fixtures.
+
 The Command Post client also has offline download tests. With its Python
 dependencies installed, run `python -m unittest discover -s tools/cp-client/tests -v`.
 
 Reimport existing replay folders to refresh resolved factions, duration, and
 absolute file paths. Reimports preserve catalogue IDs and import order.
+
+## Portable Windows build
+
+```sh
+npm run build:portable
+```
+
+Produces `release/tacitus.exe` with the UI, backend, SQLite, and a private
+WebView2 runtime embedded. Users run that single file without an installer;
+the browser runtime is unpacked into their local application cache on first
+launch. See [portable release](docs/portable-release.md) for prerequisites,
+runtime updates, and validation.
 
 ## License
 

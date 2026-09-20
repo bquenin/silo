@@ -7,8 +7,8 @@ export type SortDir = 'asc' | 'desc';
 export interface FilterState {
   search: string;
   mode: string | null;
-  /** Empty = no faction filter. Otherwise show only replays where *any*
-   *  player's actual_faction is in this set. */
+  /** Empty = no faction filter. Otherwise every selected faction must
+   *  appear as at least one player's actual faction. */
   factions: Set<string>;
 }
 
@@ -33,16 +33,18 @@ export const MODE_OPTIONS: { label: string; value: string | null }[] = [
   { label: 'FFA', value: 'FFA' },
 ];
 
-export const FACTIONS: string[] = ['GDI','Nod','Sc','BH','MoK','ST','ZCM','R17','T59'];
+export const FACTION_GROUPS = [
+  { label: 'GDI', factions: ['GDI', 'ST', 'ZCM'] },
+  { label: 'NOD', factions: ['Nod', 'MoK', 'BH'] },
+  { label: 'SCRIN', factions: ['Sc', 'T59', 'R17'] },
+];
 
 export function applyFilters(replays: Replay[], state: FilterState): Replay[] {
   const q = state.search.trim().toLowerCase();
+  const factions = [...state.factions];
   return replays.filter((r) => {
     if (state.mode != null && modeOf(r) !== state.mode) return false;
-    if (state.factions.size > 0) {
-      const hit = r.players.some((p) => state.factions.has(String(p.actual)));
-      if (!hit) return false;
-    }
+    if (!factions.every((faction) => r.players.some((p) => p.actual === faction))) return false;
     if (q) {
       const inMap = r.map.toLowerCase().includes(q);
       const inPlayers = r.players.some((p) => p.name.toLowerCase().includes(q));

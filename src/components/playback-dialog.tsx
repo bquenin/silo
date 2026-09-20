@@ -171,8 +171,6 @@ export function PlaybackDialog({ replay, onClose }: { replay: Replay; onClose: (
           <p className="mt-3 break-all">Game folder: {settings.game_path}</p>
           <p className="mt-2 break-all">Replay: {replay.file}</p>
           {report?.details.map((detail, i) => <p key={i} className="mt-2 break-all">{detail}</p>)}
-          <button onClick={() => void chooseGame()} disabled={busy || choosing || checking || launched}
-            className="mt-3 underline disabled:opacity-40">Change game folder</button>
         </details>
       )}
 

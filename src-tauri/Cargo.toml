@@ -12,8 +12,13 @@ default-run = "tacitus"
 name = "tacitus_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+[features]
+portable = []
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
+serde_json = "1"
+sha2 = "0.10"
 
 [dependencies]
 tauri = { version = "2", features = [] }
@@ -38,7 +43,7 @@ lzma-rust2 = { version = "0.20", default-features = false, features = ["std"] }
 flate2 = { version = "1", default-features = false, features = ["zlib-rs"] }
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Diagnostics_ToolHelp"] }
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_Diagnostics_ToolHelp", "Win32_UI_WindowsAndMessaging"] }
 
 # Historical packs expand to several GiB; keep decompression usable in dev.
 [profile.dev.package.lzma-rust2]

@@ -3,7 +3,7 @@ import { observeElementRect, useVirtualizer } from '@tanstack/react-virtual';
 import {
   ArrowDown, ArrowUp, Check, ChevronDown, FolderInput, Loader2, Play, Search, X,
 } from 'lucide-react';
-import { FactionDot, TeamNames } from '../components/player-names';
+import { FactionMonogram, TeamNames } from '../components/player-names';
 import { PlaybackDialog } from '../components/playback-dialog';
 import { ReplayDetail } from '../components/replay-detail';
 import type { IngestReport } from '../lib/backend';
@@ -11,7 +11,7 @@ import { formatDate, formatRelative } from '../lib/mock-data';
 import { displayMapName, formatDuration, modeOf } from '../lib/replays';
 import { useReplays } from '../lib/use-replays';
 import {
-  applyFilters, applySort, FACTIONS, MODE_OPTIONS,
+  applyFilters, applySort, FACTION_GROUPS, MODE_OPTIONS,
   type FilterState, type SortKey, type SortState,
 } from '../lib/filter-sort';
 import { FACTION_LABEL } from '../lib/types';
@@ -299,7 +299,7 @@ function FactionFilter({ selected, onToggle }: { selected: Set<string>; onToggle
   const label = selected.size === 0
     ? 'Faction'
     : selected.size === 1
-      ? [...selected][0]
+      ? <FactionMonogram faction={[...selected][0]} />
       : `${selected.size} factions`;
 
   return (
@@ -319,24 +319,29 @@ function FactionFilter({ selected, onToggle }: { selected: Set<string>; onToggle
           role="listbox"
           aria-multiselectable
           aria-label="Filter by faction"
-          className="absolute left-0 top-full mt-1 z-20 bg-bg-surface border border-bg-border rounded-md shadow-lg py-1 min-w-[200px]"
+          className="absolute left-0 top-full mt-1 z-20 bg-bg-surface border border-bg-border rounded-md shadow-lg min-w-[224px]"
         >
-          {FACTIONS.map((f) => {
-            const active = selected.has(f);
-            return (
-              <button
-                key={f}
-                role="option"
-                aria-selected={active}
-                onClick={() => onToggle(f)}
-                className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-xs text-fg-muted hover:bg-bg-elevated hover:text-fg"
-              >
-                <FactionDot faction={f} decorative />
-                <span className="flex-1">{FACTION_LABEL[f] ?? f}</span>
-                {active && <Check size={12} className="text-accent" />}
-              </button>
-            );
-          })}
+          {FACTION_GROUPS.map((group) => (
+            <div key={group.label} role="group" aria-label={group.label}
+              className="py-1 border-t border-bg-border first:border-t-0">
+              {group.factions.map((f) => {
+                const active = selected.has(f);
+                return (
+                  <button
+                    key={f}
+                    role="option"
+                    aria-selected={active}
+                    onClick={() => onToggle(f)}
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-xs text-fg-muted hover:bg-bg-elevated hover:text-fg"
+                  >
+                    <FactionMonogram faction={f} decorative className="w-12 justify-center" />
+                    <span className="flex-1">{FACTION_LABEL[f] ?? f}</span>
+                    <Check size={12} aria-hidden="true" className={`shrink-0 text-accent ${active ? '' : 'invisible'}`} />
+                  </button>
+                );
+              })}
+            </div>
+          ))}
         </div>
       )}
     </div>

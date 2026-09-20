@@ -237,6 +237,12 @@ fn launch_plan_preserves_paths_and_inherits_the_environment() {
     let report = f.check();
     let plan = report.launch_plan.unwrap();
     let command = playback::launch_command(&plan);
+    assert_eq!(
+        command.get_program(),
+        dunce::canonicalize(f.root.join("RetailExe/1.2/cnc3ep1.dat"))
+            .unwrap()
+            .as_os_str()
+    );
     let args: Vec<_> = command
         .get_args()
         .map(|a| a.to_string_lossy().into_owned())
@@ -245,6 +251,10 @@ fn launch_plan_preserves_paths_and_inherits_the_environment() {
     assert_eq!(args[0], "-replayGame");
     assert!(args[1].ends_with("Replay #1.KWReplay"));
     assert_eq!(args[2..4], ["-win", "-config"]);
+    assert_eq!(
+        Path::new(&args[4]),
+        dunce::canonicalize(f.sku()).unwrap().as_path()
+    );
     assert_eq!(
         command.get_current_dir(),
         Some(dunce::canonicalize(&f.root).unwrap().as_path())

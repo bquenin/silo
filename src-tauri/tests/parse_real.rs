@@ -1,28 +1,28 @@
-//! Smoke test against actual `.kwreplay` files in TACITUS_REPLAY_CORPUS.
+//! Smoke tests against actual `.kwreplay` files in TACITUS_REPLAY_CORPUS.
 //!
-//! Skipped when TACITUS_REPLAY_CORPUS is unset. The optional collection
+//! Skipped when the environment variable is unset. The optional collection
 //! should include matches where players chose Random.
+
+mod common;
 
 use std::path::PathBuf;
 
 use tacitus_lib::parser;
 
-fn corpus_dir() -> Option<PathBuf> {
-    let p = PathBuf::from(std::env::var_os("TACITUS_REPLAY_CORPUS")?);
-    if p.is_dir() { Some(p) } else { None }
-}
-
 #[test]
 fn parses_one_replay() {
-    let Some(root) = corpus_dir() else {
-        eprintln!("corpus not present, skipping");
+    let Some(root) = common::corpus_dir() else {
         return;
     };
     let mut sample: Option<PathBuf> = None;
-    for entry in walkdir::WalkDir::new(&root).max_depth(3) {
+    for entry in walkdir::WalkDir::new(&root) {
         let entry = entry.unwrap();
-        if entry.path().extension().and_then(|e| e.to_str())
-            .is_some_and(|e| e.eq_ignore_ascii_case("kwreplay")) {
+        if entry
+            .path()
+            .extension()
+            .and_then(|e| e.to_str())
+            .is_some_and(|e| e.eq_ignore_ascii_case("kwreplay"))
+        {
             sample = Some(entry.path().to_path_buf());
             break;
         }
@@ -41,7 +41,13 @@ fn parses_one_replay() {
     for p in &r.players {
         println!(
             "  slot {} {:?} faction={} team={} clan={:?} ai={} obs={}",
-            p.slot, p.name, p.chosen_faction.short(), p.team, p.clan, p.is_ai, p.is_observer
+            p.slot,
+            p.name,
+            p.chosen_faction.short(),
+            p.team,
+            p.clan,
+            p.is_ai,
+            p.is_observer
         );
     }
 
@@ -51,18 +57,24 @@ fn parses_one_replay() {
 
 #[test]
 fn resolves_random_factions() {
-    let Some(root) = corpus_dir() else {
-        eprintln!("corpus not present, skipping");
+    let Some(root) = common::corpus_dir() else {
         return;
     };
     // Pick the first replay that has at least one Random human.
     let mut tried = 0;
     let mut resolved_count = 0;
     let mut still_random = 0;
-    for entry in walkdir::WalkDir::new(&root).max_depth(3) {
-        let entry = match entry { Ok(e) => e, Err(_) => continue };
-        if !entry.path().extension().and_then(|e| e.to_str())
-            .is_some_and(|e| e.eq_ignore_ascii_case("kwreplay")) {
+    for entry in walkdir::WalkDir::new(&root) {
+        let entry = match entry {
+            Ok(e) => e,
+            Err(_) => continue,
+        };
+        if !entry
+            .path()
+            .extension()
+            .and_then(|e| e.to_str())
+            .is_some_and(|e| e.eq_ignore_ascii_case("kwreplay"))
+        {
             continue;
         }
         tried += 1;
@@ -70,10 +82,13 @@ fn resolves_random_factions() {
             Ok(r) => r,
             Err(_) => continue,
         };
-        let has_random = r.players.iter().any(|p|
-            matches!(p.chosen_faction, parser::Faction::Random) && !p.is_observer
-        );
-        if !has_random { continue; }
+        let has_random = r
+            .players
+            .iter()
+            .any(|p| matches!(p.chosen_faction, parser::Faction::Random) && !p.is_observer);
+        if !has_random {
+            continue;
+        }
         for p in &r.players {
             if !matches!(p.chosen_faction, parser::Faction::Random) || p.is_observer {
                 continue;
@@ -84,9 +99,14 @@ fn resolves_random_factions() {
                 resolved_count += 1;
             }
         }
-        if tried > 200 { break; } // sample
+        if tried > 200 {
+            break;
+        } // sample
     }
-    println!("resolved {} random→faction; {} still random", resolved_count, still_random);
+    println!(
+        "resolved {} random→faction; {} still random",
+        resolved_count, still_random
+    );
     assert!(resolved_count > 0, "no random players resolved at all");
     // Vast majority should resolve.
     let total = resolved_count + still_random;
@@ -100,17 +120,23 @@ fn resolves_random_factions() {
 
 #[test]
 fn parses_many_replays() {
-    let Some(root) = corpus_dir() else {
-        eprintln!("corpus not present, skipping");
+    let Some(root) = common::corpus_dir() else {
         return;
     };
     let mut total = 0usize;
     let mut ok = 0usize;
     let mut errors: Vec<(PathBuf, String)> = Vec::new();
-    for entry in walkdir::WalkDir::new(&root).max_depth(3) {
-        let entry = match entry { Ok(e) => e, Err(_) => continue };
-        if !entry.path().extension().and_then(|e| e.to_str())
-            .is_some_and(|e| e.eq_ignore_ascii_case("kwreplay")) {
+    for entry in walkdir::WalkDir::new(&root) {
+        let entry = match entry {
+            Ok(e) => e,
+            Err(_) => continue,
+        };
+        if !entry
+            .path()
+            .extension()
+            .and_then(|e| e.to_str())
+            .is_some_and(|e| e.eq_ignore_ascii_case("kwreplay"))
+        {
             continue;
         }
         total += 1;

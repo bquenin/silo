@@ -249,8 +249,8 @@ On 2026-09-19, the R24g 1v1 ZIP was downloaded from the historical version
 list and extracted without executing its installer. Catalogue replay 1153
 (`[R24] Abandoned Subway`) prepared again offline and reached active replay
 playback with a temporary config outside the game directory. The CLI had
-exited while its session remained
-available to the game. The test copy was then closed. All 37 game configuration
+exited while its session remained available to the game. The test copy was
+then closed. All 37 game configuration
 files matched their pre-test SHA-256 values. This was a brief loading/playback
 check, not a full-duration determinism test; further live testing was deferred
 at the user's request.

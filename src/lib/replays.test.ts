@@ -28,4 +28,27 @@ describe('replay presentation', () => {
     const candidates = [[0, 0, 0, 0], [1, 1, 1, 2], [1, 1, 2, 2]].map((t, i) => rowToReplay(row(t, i)));
     expect(applyFilters(candidates, { search: '', factions: new Set(), mode: '2v2' }).map((r) => r.id)).toEqual(['2']);
   });
+
+  it.each([
+    [[], ['1', '2', '3', '4']],
+    [['GDI'], ['1', '3', '4']],
+    [['GDI', 'Nod'], ['3', '4']],
+    [['GDI', 'Nod', 'Sc'], ['4']],
+    [['GDI', 'ST'], []],
+  ])('requires all selected factions %j to appear among players, including resolved Random picks', (selected, expected) => {
+    const candidates = [
+      ['GDI', 'Sc'], ['Nod', 'Sc'], ['GDI', 'Nod'], ['GDI', 'Nod', 'Sc', 'Sc'],
+    ].map((factions, i) => {
+      // In the team game, GDI and Nod are allies; other factions may also be present.
+      const data = row(factions.length === 4 ? [1, 1, 2, 2] : [1, 2], i + 1);
+      data.players.forEach((player, slot) => {
+        player.chosen_faction = 'Rnd';
+        player.actual_faction = factions[slot];
+      });
+      return rowToReplay(data);
+    });
+    expect(applyFilters(candidates, {
+      search: '', mode: null, factions: new Set(selected),
+    }).map((r) => r.id)).toEqual(expected);
+  });
 });

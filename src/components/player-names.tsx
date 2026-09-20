@@ -10,6 +10,36 @@ export function factionLabel(faction: string): string {
   return FACTION_LABEL[faction] ?? faction;
 }
 
+const FACTION_MONOGRAM: Record<string, string> = {
+  GDI: 'GDI', Nod: 'NOD', Sc: 'SCRIN',
+  ST: 'ST', T59: 'T59', R17: 'R17',
+  MoK: 'MoK', BH: 'BH', ZCM: 'ZOCOM',
+  Rnd: 'RND', Obs: 'OBS',
+};
+
+export function FactionMonogram({ faction, chosen, className = '', decorative = false }: {
+  faction: string; chosen?: string; className?: string; decorative?: boolean;
+}) {
+  const color = FACTION_COLOR[faction] ?? FACTION_COLOR.Rnd;
+  const random = pickedRandom({ chosen: chosen ?? faction, actual: faction });
+  const label = `${factionLabel(faction)}${random ? ' (picked Random)' : ''}`;
+  return (
+    <span
+      aria-hidden={decorative || undefined}
+      title={decorative ? undefined : label}
+      className={`inline-flex shrink-0 items-center rounded border px-1 py-0.5 align-middle font-mono text-[10px] font-semibold leading-none ${className}`}
+      style={{
+        color: `color-mix(in srgb, ${color} 70%, white)`,
+        backgroundColor: `${color}14`,
+        borderColor: `${color}40`,
+      }}
+    >
+      <span aria-hidden="true">{FACTION_MONOGRAM[faction] ?? faction}</span>
+      {!decorative && <span className="sr-only">{label}</span>}
+    </span>
+  );
+}
+
 /** Small coloured dot naming the faction on hover. Ringed when the faction
  *  was assigned from Random so the distinction survives without text.
  *  Pass `decorative` when the faction name is already written next to it. */
@@ -30,7 +60,7 @@ export function FactionDot({ faction, chosen, className = '', decorative = false
   );
 }
 
-/** "A, B vs C, D" with a faction dot before each name. */
+/** "A, B vs C, D" with a faction monogram before each name. */
 export function TeamNames({ teams, className = '' }: { teams: Player[][]; className?: string }) {
   return (
     <span className={`min-w-0 truncate ${className}`}>
@@ -40,7 +70,7 @@ export function TeamNames({ teams, className = '' }: { teams: Player[][]; classN
           {team.map((p, i) => (
             <span key={p.slot} className="whitespace-nowrap">
               {i > 0 && <span className="text-fg-dim">, </span>}
-              <FactionDot faction={p.actual} chosen={p.chosen} className="mr-1.5 align-middle -mt-0.5" />
+              <FactionMonogram faction={p.actual} chosen={p.chosen} className="mr-1.5 -mt-0.5" />
               {p.name}
             </span>
           ))}
