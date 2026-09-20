@@ -12,16 +12,17 @@ use sha2::{Digest, Sha256};
 
 use super::{
     automatic::{Control, Progress},
-    content,
+    content, sources,
 };
 
 const MAX_PACKAGE_BYTES: u64 = 5 * 1024 * 1024 * 1024;
 const MAX_PAGE_BYTES: usize = 4 * 1024 * 1024;
 
 pub fn supported(revision: &str) -> bool {
-    Regex::new(r"(?i)^R(22|23|24|25)[a-z]?$")
-        .unwrap()
-        .is_match(revision)
+    sources::available(revision)
+        || Regex::new(r"(?i)^R(21|22|23|24|25)[a-z]?$")
+            .unwrap()
+            .is_match(revision)
 }
 
 /// Fail closed if the provider changes its version-list markup. Exact labels
@@ -30,7 +31,7 @@ fn version_url(html: &str, revision: &str) -> Result<Option<Url>> {
     let row = Regex::new(r#"(?s)<li\b[^>]*class="[^"]*\byh_version-item\b[^"]*"[^>]*>(.*?)</li>"#)?;
     let filename = Regex::new(r#"data-full="([^"]+)""#)?;
     let expected_name = Regex::new(&format!(
-        r"(?i)^{}-(1vs1|2vs2|4vs4|4v4|legacy|all-in-one)-map-pack\.zip$",
+        r"(?i)^{}[-_](1vs1|2vs2|4vs4|4v4|legacy|all-in-one)[-_]map[-_]pack\.zip$",
         regex::escape(revision)
     ))?;
     let link = Regex::new(r#"href="([^"]*yh_download_id=[^"]+)""#)?;
@@ -213,7 +214,7 @@ pub fn acquire(
 ) -> Result<()> {
     ensure!(
         supported(revision),
-        "Automatic downloads are not available for map version {revision}."
+        "Tacitus has no verified automatic download source for map version {revision}."
     );
     control.check()?;
     let _cache_lock = lock_cache(cache)?;
@@ -225,12 +226,28 @@ pub fn acquire(
     fs::create_dir_all(&stages)?;
     cleanup_staging(&stages)?;
     let mut failures = Vec::new();
-    for source_page in sources {
+    'packs: for source_page in sources {
         let label = super::selection::pack_label(source_page);
         control.stage(
             "locating",
             format!("Finding the exact {revision} map pack…"),
         )?;
+        // Preserve category ordering (a 1v1 pack before a multi-player pack),
+        // while preferring Command Post's verified links within each category.
+        if let Some(kind) = super::selection::PackKind::from_page(source_page) {
+            for candidate in sources::command_post(revision, kind) {
+                match acquire_from(
+                    cache, &stages, asset, revision, label, &candidate, &runtime, &client, control,
+                ) {
+                    Ok(true) => return Ok(()),
+                    Ok(false) => continue 'packs,
+                    Err(error) => {
+                        control.check()?;
+                        failures.push(format!("{}: {error:#}", candidate.source));
+                    }
+                }
+            }
+        }
         let html = match runtime.block_on(page(&client, source_page, control)) {
             Ok(Some(html)) => html,
             Ok(None) => continue,
@@ -240,83 +257,112 @@ pub fn acquire(
                 continue;
             }
         };
-        let Some(url) = version_url(&html, revision)? else {
-            continue;
-        };
-        if content::contains_other_map(cache, url.as_str(), revision, asset)? {
-            continue;
-        }
-        let stage = tempfile::Builder::new()
-            .prefix("download-")
-            .tempdir_in(&stages)?;
-        fs::write(stage.path().join("tacitus-download"), "1\n")?;
-        // Keep a complete, hashed download if extraction fails, so
-        // retrying preparation does not require downloading it again.
-        let downloads = cache.join("downloads");
-        fs::create_dir_all(&downloads)?;
-        let key = hex::encode(Sha256::digest(url.as_str().as_bytes()));
-        let package_path = downloads.join(format!("{key}.zip"));
-        let checksum_path = downloads.join(format!("{key}.sha256"));
-        let previous = fs::read_to_string(&checksum_path)
-            .ok()
-            .filter(|s| s.len() == 64 && s.bytes().all(|b| b.is_ascii_hexdigit()));
-        let cached_hash = if package_path.is_file() && previous.is_some() {
-            control.stage("verifying", "Verifying the previously downloaded pack…")?;
-            let actual = content::hash_file(&package_path, control)?.0;
-            previous.filter(|hash| *hash == actual)
-        } else {
-            None
-        };
-        let hash = if let Some(hash) = cached_hash {
-            hash
-        } else {
-            control.stage(
-                "downloading",
-                format!("Downloading the {revision} {label}…"),
-            )?;
-            let pending = stage.path().join("package.part");
-            let hash = runtime
-                .block_on(package(
-                    &client,
-                    &url,
-                    source_page,
-                    &pending,
-                    revision,
-                    label,
-                    control,
-                ))
-                .context(
-                    "The required map pack could not be downloaded. Press Play to try again.",
-                )?;
-            zip::ZipArchive::new(File::open(&pending)?)
-                .context("The map provider returned an invalid package. Press Play to retry.")?;
-            if package_path.is_file() {
-                fs::remove_file(&package_path)?;
+        let url = match version_url(&html, revision) {
+            Ok(Some(url)) => url,
+            Ok(None) => continue,
+            Err(error) => {
+                failures.push(format!("{source_page}: {error:#}"));
+                continue;
             }
-            fs::rename(pending, &package_path)?;
-            fs::write(&checksum_path, &hash)?;
-            hash
         };
-        let output = super::package::unpack(&package_path, stage.path(), revision, label, control)?;
-        let published = content::publish(&output, cache, revision, url.as_str(), &hash, control)?;
-        // Extracted content is the persistent cache; the compressed copy is
-        // no longer needed after successful verification and publication.
-        fs::remove_file(package_path)?;
-        fs::remove_file(checksum_path)?;
-        // Inspect this newly verified package, not an older corrupt cache
-        // entry that happens to claim the requested map in its manifest.
-        if content::has_asset(&published, asset)? {
-            return Ok(());
+        let candidate = sources::Candidate {
+            source: url.to_string(),
+            url,
+        };
+        match acquire_from(
+            cache, &stages, asset, revision, label, &candidate, &runtime, &client, control,
+        ) {
+            Ok(true) => return Ok(()),
+            Ok(false) => {}
+            Err(error) => {
+                control.check()?;
+                failures.push(format!("{source_page}: {error:#}"));
+            }
         }
     }
     control.check()?;
     if !failures.is_empty() {
         bail!(
-            "The map download service could not be reached for all packs. Press Play to retry. {}",
+            "The exact {revision} map pack could not be prepared from the available sources. Press Play to retry. {}",
             failures.join("; ")
         );
     }
     bail!("The exact {revision} map and its scripts are not available from the supported download sources.")
+}
+
+fn acquire_from(
+    cache: &Path,
+    stages: &Path,
+    asset: &str,
+    revision: &str,
+    label: &str,
+    candidate: &sources::Candidate,
+    runtime: &tokio::runtime::Runtime,
+    client: &reqwest::Client,
+    control: &Control<'_>,
+) -> Result<bool> {
+    let url = &candidate.url;
+    if content::contains_other_map(cache, &candidate.source, revision, asset)? {
+        return Ok(false);
+    }
+    let stage = tempfile::Builder::new()
+        .prefix("download-")
+        .tempdir_in(stages)?;
+    fs::write(stage.path().join("tacitus-download"), "1\n")?;
+    // Keep a complete, hashed download if extraction fails, so
+    // retrying preparation does not require downloading it again.
+    let downloads = cache.join("downloads");
+    fs::create_dir_all(&downloads)?;
+    let key = hex::encode(Sha256::digest(url.as_str().as_bytes()));
+    let package_path = downloads.join(format!("{key}.zip"));
+    let checksum_path = downloads.join(format!("{key}.sha256"));
+    let previous = fs::read_to_string(&checksum_path)
+        .ok()
+        .filter(|s| s.len() == 64 && s.bytes().all(|b| b.is_ascii_hexdigit()));
+    let cached_hash = if package_path.is_file() && previous.is_some() {
+        control.stage("verifying", "Verifying the previously downloaded pack…")?;
+        let actual = content::hash_file(&package_path, control)?.0;
+        previous.filter(|hash| *hash == actual)
+    } else {
+        None
+    };
+    let hash = if let Some(hash) = cached_hash {
+        hash
+    } else {
+        control.stage(
+            "downloading",
+            format!("Downloading the {revision} {label}…"),
+        )?;
+        let pending = stage.path().join("package.part");
+        let hash = runtime
+            .block_on(package(
+                client,
+                url,
+                &candidate.source,
+                &pending,
+                revision,
+                label,
+                control,
+            ))
+            .context("The required map pack could not be downloaded. Press Play to try again.")?;
+        zip::ZipArchive::new(File::open(&pending)?)
+            .context("The map provider returned an invalid package. Press Play to retry.")?;
+        if package_path.is_file() {
+            fs::remove_file(&package_path)?;
+        }
+        fs::rename(pending, &package_path)?;
+        fs::write(&checksum_path, &hash)?;
+        hash
+    };
+    let output = super::package::unpack(&package_path, stage.path(), revision, label, control)?;
+    let published = content::publish(&output, cache, revision, &candidate.source, &hash, control)?;
+    // Extracted content is the persistent cache; the compressed copy is
+    // no longer needed after successful verification and publication.
+    fs::remove_file(package_path)?;
+    fs::remove_file(checksum_path)?;
+    // Inspect this newly verified package, not an older corrupt cache
+    // entry that happens to claim the requested map in its manifest.
+    content::has_asset(&published, asset)
 }
 
 #[cfg(test)]
@@ -489,5 +535,15 @@ mod tests {
                 .is_none()
         );
         assert!(version_url(&html.replace("kaneswrath.com", "example.org"), "R24j").is_err());
+        let historical = html.replace("R24j-1vs1-Map-Pack", "R21h_1vs1_Map_Pack");
+        assert!(version_url(&historical, "R21h").unwrap().is_some());
+        assert!(version_url(&historical, "R21").unwrap().is_none());
+        assert!(version_url(
+            &historical.replace("_Map_Pack.zip", "_Map_Pack_1.03.zip"),
+            "R21h"
+        )
+        .unwrap()
+        .is_none());
+        assert!(supported("R20e"));
     }
 }

@@ -1,7 +1,8 @@
 //! Pick a likely pack before downloading it. Pack categories describe map
 //! capacity, not team assignments: four-player FFA and 2v2 use the same pool.
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum PackKind {
     Duel,
     TwoVsTwo,
@@ -11,6 +12,17 @@ pub enum PackKind {
 }
 
 impl PackKind {
+    pub fn from_page(page: &str) -> Option<Self> {
+        match pack_label(page) {
+            "1v1 map pack" => Some(Self::Duel),
+            "2v2 map pack" => Some(Self::TwoVsTwo),
+            "4v4 map pack" => Some(Self::Large),
+            "legacy map pack" => Some(Self::Legacy),
+            "all-in-one map pack" => Some(Self::Combined),
+            _ => None,
+        }
+    }
+
     pub fn from_archive(name: &str) -> Option<Self> {
         let name = name.to_ascii_lowercase();
         for (suffix, kind) in [
@@ -55,7 +67,12 @@ pub fn map_identity(asset: &str) -> Option<&str> {
 
 /// Human label for the pack behind a download page, e.g. "1v1 map pack".
 pub fn pack_label(page: &str) -> &'static str {
-    let slug = page.trim_end_matches('/').rsplit('/').next().unwrap_or("").to_ascii_lowercase();
+    let slug = page
+        .trim_end_matches('/')
+        .rsplit('/')
+        .next()
+        .unwrap_or("")
+        .to_ascii_lowercase();
     if slug.contains("1vs1") || slug.contains("1v1") {
         "1v1 map pack"
     } else if slug.contains("2vs2") || slug.contains("2v2") {

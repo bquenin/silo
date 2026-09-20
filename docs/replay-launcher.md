@@ -42,17 +42,26 @@ Observers and commentators are excluded; AI players count. FFA and team
 games with the same participant count use the same map-capacity hint.
 Without a known map match, categories too small for the match are skipped.
 
-The kaneswrath.com version lists are searched for the exact R22–R25 revision
-in that order, with legacy and combined packs as fallbacks. Match size is
+Within each category, verified public links from Command Post's historical
+registry are tried first. The kaneswrath.com version lists are fallbacks for
+the exact R21–R25 revision, including filenames that use underscores. The
+[source catalogue](map-pack-sources.md) records links, their availability,
+exact Command Post version IDs and archive names. Downloading the embedded
+public links does not require a Command Post login. Match size is
 not guaranteed to equal map capacity, so an unknown map can still require
 another candidate if the first pack does not contain it. Missing
 historical downloads fail explicitly; Tacitus never substitutes the latest
 version. Download support also depends on the available package format:
-direct BIG files in ZIPs and the Unicode, non-solid LZMA NSISBI layout used
-by the R24g pack are supported. Other layouts fail without running installers.
+direct BIG files in ZIPs, Unicode non-solid DEFLATE NSIS (including R20e),
+and the Unicode chunked LZMA NSISBI layout used by R24g are supported.
+Other layouts fail without running installers. Finding an older public ZIP
+does not by itself establish that its installer layout is supported.
 
 The extractor reads the installer as data and selects the revision's map
 archives, scripts and community texture archive from its Patch103 payload.
+Command Post's metadata handles historical archive aliases such as
+`R201v1Maps.big` for R20e and `R21g1v1Maps.big` for R21h. The internal map
+asset must still match the replay's complete revision-specific path.
 It does not execute installer instructions, plugins, replacement engines or
 configuration changes. Extraction has bounds on file counts, offsets, memory,
 expanded sizes and output paths. No external extraction program is required.
@@ -132,7 +141,7 @@ cannot be combined with `--game`, `--offline` or `prepare`.
 ## Implementation references and checks
 
 The [NSISBI project](https://sourceforge.net/projects/nsisbi/), NSIS's
-`Source/exehead/fileform.h`, and the
+[fileform.h](https://github.com/kichik/nsis/blob/master/Source/exehead/fileform.h), and the
 [NSISExtractor format notes](https://github.com/KokerZhou/NSISExtractor/blob/main/docs/nsis-format-notes.md)
 inform the bounded installer reader. The historical source is the
 [R24 1v1 map pack version list](https://kaneswrath.com/download/r24-1vs1-map-pack/).
@@ -143,6 +152,14 @@ truncated HTTP responses, cancellation during HTTP waits and preparation,
 bounded extraction, path containment, settings migration, stale-session
 ownership, and the one-action frontend flow. Legacy checker fixtures remain
 in `src-tauri/tests/playback.rs`.
+
+The historical-source tests also cover public-link filtering, exact archive
+aliases, underscore filenames, the older NSIS file records, bounded DEFLATE
+decoding, stream termination, and cancellation. R20e 1v1 and 2v2 packages
+from Command Post's public Drive links were fully downloaded, extracted and
+used to prepare replays 405 and 443 on 2026-09-19. The 2v2 check exercised
+Tacitus's complete network download path; the 1v1 check reused the verified
+research download. These checks did not start the game.
 
 On 2026-09-19, the R24g 1v1 ZIP was downloaded from the historical version
 list and extracted without executing its installer. Catalogue replay 1153

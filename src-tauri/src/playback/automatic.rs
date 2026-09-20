@@ -109,7 +109,7 @@ pub fn inspect(target: &ReplayTarget, game_path: Option<&Path>, cache: &Path) ->
                 .context("The required base-game map is missing. Repair the game installation.")?;
             ensure!(
                 download::supported(&revision),
-                "Automatic downloads are not available for map version {revision}."
+                "Tacitus has no verified automatic download source for map version {revision}."
             );
             report.message =
                 format!("The content for {revision} will be prepared when you press Play.");

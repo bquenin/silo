@@ -9,6 +9,7 @@ mod download;
 mod installation;
 mod package;
 mod selection;
+mod sources;
 
 pub use installation::{load_settings, save_settings, settings_path, Settings};
 

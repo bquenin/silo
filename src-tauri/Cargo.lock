@@ -3738,6 +3738,7 @@ dependencies = [
  "anyhow",
  "chrono",
  "dunce",
+ "flate2",
  "hex",
  "lzma-rust2",
  "regex",

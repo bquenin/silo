@@ -3,8 +3,8 @@
 //! NSIS structures follow Source/exehead/fileform.h (NSIS / NSISBI).
 //! We read file records only: no installer instructions, plugins, engine
 //! replacements, registry changes, or supplied configuration are executed.
-//! Supported installer layout: Unicode, non-solid LZMA, with the NSISBI
-//! 64-bit item lengths and 24-bit chunk framing used by the historical packs.
+//! Supported layouts: Unicode NSIS with non-solid DEFLATE, and NSISBI with
+//! 64-bit item lengths and chunked non-solid LZMA. See docs/map-pack-sources.md.
 use std::cell::Cell;
 use std::collections::BTreeMap;
 use std::fs::{self, File};
@@ -100,6 +100,7 @@ fn wanted(name: &str, revision: &str) -> bool {
         && (name == "102scripts.big"
             || name == "102texturefix.big"
             || name == format!("{revision}scripts.big")
+            || super::sources::map_archive(&name, &revision)
             || (name.starts_with(&revision)
                 && name.ends_with("maps.big")
                 && name.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'.')))
@@ -236,6 +237,127 @@ fn item_header(file: &mut File, offset: u64, end: u64) -> Result<(bool, u64)> {
     Ok((compressed, size))
 }
 
+#[derive(Clone, Copy)]
+enum Layout {
+    Deflate,
+    ChunkedLzma,
+}
+
+impl Layout {
+    fn item_bytes(self) -> u64 {
+        match self {
+            Self::Deflate => 4,
+            Self::ChunkedLzma => 8,
+        }
+    }
+
+    fn first_header_bytes(self) -> u64 {
+        match self {
+            Self::Deflate => 28,
+            Self::ChunkedLzma => 36,
+        }
+    }
+
+    fn item_header(self, file: &mut File, offset: u64, end: u64) -> Result<(bool, u64)> {
+        if matches!(self, Self::ChunkedLzma) {
+            return item_header(file, offset, end);
+        }
+        ensure!(
+            offset.checked_add(4).is_some_and(|n| n <= end),
+            "Installer item outside package"
+        );
+        file.seek(SeekFrom::Start(offset))?;
+        let mut bytes = [0; 4];
+        file.read_exact(&mut bytes)?;
+        let length = u32::from_le_bytes(bytes);
+        let size = (length & 0x7fff_ffff) as u64;
+        ensure!(size <= end - offset - 4, "Truncated installer item");
+        Ok((length >> 31 != 0, size))
+    }
+
+    fn decode(
+        self,
+        file: &mut File,
+        offset: u64,
+        end: u64,
+        output: &mut impl Write,
+        limit: u64,
+        control: &Control<'_>,
+        progress: Option<&ExtractionProgress<'_, '_>>,
+    ) -> Result<u64> {
+        if matches!(self, Self::ChunkedLzma) {
+            return item(file, offset, end, output, limit, control, progress);
+        }
+        let (compressed, size) = self.item_header(file, offset, end)?;
+        if let Some(progress) = progress {
+            progress.advance(4);
+        }
+        let tracked = ProgressReader {
+            inner: file,
+            on_read: |bytes| {
+                if let Some(progress) = progress {
+                    progress.advance(bytes);
+                }
+            },
+        };
+        let mut input = tracked.take(size);
+        if !compressed {
+            let written = copy_limited(&mut input, output, limit, control)?;
+            ensure!(written == size, "Truncated uncompressed installer item");
+            return Ok(written);
+        }
+        let written = inflate(&mut input, output, limit, control)?;
+        ensure!(input.limit() == 0, "Truncated installer item");
+        Ok(written)
+    }
+}
+
+/// Require an actual end-of-stream marker: a decoder returning EOF alone does
+/// not establish that a truncated raw DEFLATE stream was complete.
+fn inflate(
+    mut input: impl Read,
+    output: &mut impl Write,
+    limit: u64,
+    control: &Control<'_>,
+) -> Result<u64> {
+    let mut decoder = flate2::Decompress::new(false);
+    let mut compressed = [0; 128 * 1024];
+    let mut expanded = [0; 128 * 1024];
+    let (mut start, mut end) = (0, 0);
+    loop {
+        control.check()?;
+        if start == end {
+            end = input.read(&mut compressed)?;
+            start = 0;
+        }
+        let (before_in, before_out) = (decoder.total_in(), decoder.total_out());
+        let status = decoder.decompress(
+            &compressed[start..end],
+            &mut expanded,
+            flate2::FlushDecompress::None,
+        )?;
+        let consumed = (decoder.total_in() - before_in) as usize;
+        let written = (decoder.total_out() - before_out) as usize;
+        ensure!(
+            decoder.total_out() <= limit,
+            "The map package expands beyond the supported size."
+        );
+        output.write_all(&expanded[..written])?;
+        start += consumed;
+        if status == flate2::Status::StreamEnd {
+            ensure!(
+                start == end && input.read(&mut [0])? == 0,
+                "Trailing data in installer item"
+            );
+            return Ok(decoder.total_out());
+        }
+        ensure!(
+            consumed > 0 || written > 0,
+            "Truncated DEFLATE installer item"
+        );
+    }
+}
+
 /// Decode one bounded, non-solid data item. NSISBI compresses independent
 /// chunks with their own five-byte LZMA properties and an explicit end marker.
 fn item(
@@ -338,13 +460,15 @@ fn records(header: &[u8], revision: &str) -> Result<BTreeMap<String, u64>> {
     let count = u32_at(header, 24)? as usize;
     let strings = u32_at(header, 28)? as usize;
     let languages = u32_at(header, 36)? as usize;
+    let entry_size = if count > 0 && count <= 100_000 {
+        [28, 36]
+            .into_iter()
+            .find(|size| entries.checked_add(count * size) == Some(strings))
+    } else {
+        None
+    };
     ensure!(
-        entries >= 60
-            && count > 0
-            && count <= 100_000
-            && entries.checked_add(count * 36) == Some(strings)
-            && strings < languages
-            && languages <= header.len(),
+        entries >= 60 && entry_size.is_some() && strings < languages && languages <= header.len(),
         "Unsupported installer record layout"
     );
     // The supported NSIS Unicode string table begins with its empty string.
@@ -352,10 +476,11 @@ fn records(header: &[u8], revision: &str) -> Result<BTreeMap<String, u64>> {
         header.get(strings..strings + 2) == Some(&[0, 0]),
         "Unsupported installer string encoding"
     );
+    let entry_size = entry_size.unwrap();
     let mut files = BTreeMap::new();
     let mut in_patch = false;
     for n in 0..count {
-        let at = entries + n * 36;
+        let at = entries + n * entry_size;
         match u32_at(header, at)? {
             11 if u32_at(header, at + 8)? != 0 => {
                 let directory = string_at(header, strings, languages, u32_at(header, at + 4)?)?;
@@ -369,7 +494,12 @@ fn records(header: &[u8], revision: &str) -> Result<BTreeMap<String, u64>> {
                 if wanted(&name, revision) {
                     // Some packs include the texture fix twice. NSIS's later
                     // file record replaces the earlier one at the same path.
-                    files.insert(name.to_ascii_lowercase(), u64_at(header, at + 12)?);
+                    let offset = if entry_size == 36 {
+                        u64_at(header, at + 12)?
+                    } else {
+                        u32_at(header, at + 12)? as u64
+                    };
+                    files.insert(name.to_ascii_lowercase(), offset);
                 }
             }
             _ => {}
@@ -403,10 +533,11 @@ fn extract_installer(
         .context("NSIS header not found")?;
     // 0x10: long item offsets; 0x40: chunk framing. External/stub installers
     // require additional files and are deliberately not interpreted here.
-    ensure!(
-        u32_at(&prefix, start)? & !0x0e == 0x50 && u64_at(&prefix, start + 28)? == 0,
-        "Unsupported NSIS variant"
-    );
+    let layout = match u32_at(&prefix, start)? & !0x0e {
+        0 => Layout::Deflate,
+        0x50 if u64_at(&prefix, start + 28)? == 0 => Layout::ChunkedLzma,
+        _ => anyhow::bail!("Unsupported NSIS variant"),
+    };
     let expected_header = u32_at(&prefix, start + 20)? as u64;
     ensure!(
         (60..=MAX_HEADER).contains(&expected_header),
@@ -416,17 +547,18 @@ fn extract_installer(
         .checked_add(u32_at(&prefix, start + 24)? as u64)
         .context("Invalid installer size")?;
     ensure!(
-        end <= size && end > start as u64 + 44,
+        end <= size && end > start as u64 + layout.first_header_bytes() + layout.item_bytes(),
         "Installer extends outside package"
     );
-    let length = u64_at(&prefix, start + 36)? & (u64::MAX >> 1);
-    let data = (start as u64 + 44)
+    let header_offset = start as u64 + layout.first_header_bytes();
+    let (_, length) = layout.item_header(&mut file, header_offset, end)?;
+    let data = (header_offset + layout.item_bytes())
         .checked_add(length)
         .context("Invalid installer data offset")?;
     let mut header = Vec::new();
-    item(
+    layout.decode(
         &mut file,
-        start as u64 + 36,
+        header_offset,
         end,
         &mut header,
         expected_header,
@@ -444,15 +576,15 @@ fn extract_installer(
         *offset = data
             .checked_add(*offset)
             .context("Invalid installer file offset")?;
-        let (_, size) = item_header(&mut file, *offset, end)?;
-        expected += 8 + size;
+        let (_, size) = layout.item_header(&mut file, *offset, end)?;
+        expected += layout.item_bytes() + size;
     }
     let progress = ExtractionProgress::new(control, expected, label)?;
     let mut total = 0;
     for (name, offset) in files {
         control.check()?;
         let mut target = File::create(output.join(&name))?;
-        total += item(
+        total += layout.decode(
             &mut file,
             offset,
             end,
@@ -470,6 +602,128 @@ mod tests {
     use super::*;
     use crate::playback::automatic::Cancellation;
     use std::cell::RefCell;
+
+    fn deflated(bytes: &[u8]) -> Vec<u8> {
+        let mut encoder =
+            flate2::write::DeflateEncoder::new(Vec::new(), flate2::Compression::fast());
+        encoder.write_all(bytes).unwrap();
+        encoder.finish().unwrap()
+    }
+
+    #[test]
+    fn classic_deflate_requires_complete_streams_and_respects_limits_and_cancellation() {
+        let payload = b"map payload".repeat(40_000);
+        let compressed = deflated(&payload);
+        let cancel = Cancellation::default();
+        let control = Control {
+            cancelled: &cancel,
+            progress: &|_| {},
+        };
+        let mut out = Vec::new();
+        assert_eq!(
+            inflate(
+                compressed.as_slice(),
+                &mut out,
+                payload.len() as u64,
+                &control
+            )
+            .unwrap(),
+            payload.len() as u64
+        );
+        assert_eq!(out, payload);
+        assert!(inflate(
+            &compressed[..compressed.len() - 1],
+            &mut Vec::new(),
+            u64::MAX,
+            &control
+        )
+        .is_err());
+        let mut trailing = compressed.clone();
+        trailing.push(0);
+        assert!(inflate(trailing.as_slice(), &mut Vec::new(), u64::MAX, &control).is_err());
+        assert!(inflate(compressed.as_slice(), &mut Vec::new(), 100, &control).is_err());
+        cancel.cancel();
+        assert!(
+            inflate(compressed.as_slice(), &mut Vec::new(), u64::MAX, &control)
+                .unwrap_err()
+                .to_string()
+                .contains("cancelled")
+        );
+    }
+
+    #[test]
+    fn classic_nsis_extracts_exact_historical_archive_aliases_as_data() {
+        let mut header = vec![0; 60 + 28 * 3];
+        let strings = header.len() as u32;
+        let mut add_string = |value: &str| {
+            let offset = (header.len() as u32 - strings) / 2;
+            for unit in value.encode_utf16().chain([0]) {
+                header.extend(unit.to_le_bytes());
+            }
+            offset
+        };
+        add_string("");
+        let patch = add_string("$INSTDIR\\Patch103");
+        let map = add_string("R201v1Maps.big");
+        let scripts = add_string("102Scripts.big");
+        let end = header.len() as u32;
+        for (at, value) in [(20, 60), (24, 3), (28, strings), (36, end)] {
+            header[at..at + 4].copy_from_slice(&value.to_le_bytes());
+        }
+        let item = |bytes: &[u8]| {
+            let compressed = deflated(bytes);
+            let mut item = (0x8000_0000 | compressed.len() as u32)
+                .to_le_bytes()
+                .to_vec();
+            item.extend(compressed);
+            item
+        };
+        let mut data = item(b"map data");
+        let scripts_offset = data.len() as u32;
+        data.extend(item(b"matching scripts"));
+        for (n, values) in [
+            [11, patch, 1, 0, 0, 0, 0],
+            [20, 0, map, 0, 123456, 0, 0],
+            [20, 0, scripts, scripts_offset, 123456, 0, 0],
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            for (i, value) in values.into_iter().enumerate() {
+                let at = 60 + n * 28 + i * 4;
+                header[at..at + 4].copy_from_slice(&value.to_le_bytes());
+            }
+        }
+        let header_item = item(&header);
+        let mut payload = vec![0; 512];
+        payload[..2].copy_from_slice(b"MZ");
+        payload.extend(0u32.to_le_bytes());
+        payload.extend(SIGNATURE);
+        payload.extend((header.len() as u32).to_le_bytes());
+        payload.extend((28 + header_item.len() as u32 + data.len() as u32).to_le_bytes());
+        payload.extend(header_item);
+        payload.extend(data);
+        let root = tempfile::tempdir().unwrap();
+        let input = root.path().join("installer.dat");
+        fs::write(&input, payload).unwrap();
+        let output = root.path().join("content");
+        fs::create_dir(&output).unwrap();
+        let cancel = Cancellation::default();
+        let control = Control {
+            cancelled: &cancel,
+            progress: &|_| {},
+        };
+        extract_installer(&input, &output, "R20e", "1v1 map pack", &control).unwrap();
+        assert_eq!(
+            fs::read(output.join("r201v1maps.big")).unwrap(),
+            b"map data"
+        );
+        assert_eq!(
+            fs::read(output.join("102scripts.big")).unwrap(),
+            b"matching scripts"
+        );
+        assert_eq!(fs::read_dir(output).unwrap().count(), 2);
+    }
 
     fn compressed_item(chunks: usize) -> Vec<u8> {
         let compressed = [
