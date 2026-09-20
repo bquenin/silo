@@ -224,7 +224,7 @@ fn cmd_playback(db_path: &PathBuf, rest: &[&str], json: bool, action: &str) -> R
                 eprintln!(
                     "{} {}{}",
                     event.message,
-                    event.downloaded,
+                    event.completed,
                     event
                         .total
                         .map(|n| format!("/{n} bytes"))

@@ -145,7 +145,11 @@ impl Db {
     pub fn replay_target(&self, id: i64) -> Result<crate::playback::ReplayTarget> {
         Ok(self.conn.query_row(
             "SELECT file_path, file_hash, map_name, map_path, map_crc,
-                    version_major, version_minor, build_major, build_minor
+                    version_major, version_minor, build_major, build_minor,
+                    (SELECT COUNT(*) FROM players
+                     WHERE replay_id = replays.id
+                       AND COALESCE(is_observer, 0) = 0
+                       AND COALESCE(is_commentator, 0) = 0)
              FROM replays WHERE id = ?1",
             params![id],
             |row| {
@@ -157,6 +161,7 @@ impl Db {
                     map_path: row.get(3)?,
                     map_crc: row.get(4)?,
                     version: [row.get(5)?, row.get(6)?, row.get(7)?, row.get(8)?],
+                    n_players: row.get(9)?,
                 })
             },
         )?)

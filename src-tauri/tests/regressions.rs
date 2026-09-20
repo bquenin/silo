@@ -246,6 +246,44 @@ fn mode_filters_and_statistics_use_teams_without_spectators() {
 }
 
 #[test]
+fn playback_pack_selection_receives_active_counts_for_team_games_and_ffa() {
+    let f = Fixture::new();
+    seed(&f, "2v2", &[(0, 6), (0, 6), (1, 9), (1, 9), (-1, 3)], 18000);
+    seed(&f, "ffa4", &[(-1, 6); 4], 18000);
+    seed(
+        &f,
+        "3v3",
+        &[(0, 6), (0, 6), (0, 6), (1, 9), (1, 9), (1, 9)],
+        18000,
+    );
+    seed(&f, "ffa8", &[(-1, 6); 8], 18000);
+    let conn = rusqlite::Connection::open(f.file("catalogue.sqlite3")).unwrap();
+    // Old aggregate counts can include spectators. Selection uses the roster.
+    conn.execute("UPDATE replays SET n_players=99", []).unwrap();
+    conn.execute(
+        "UPDATE players SET is_ai=1 WHERE replay_id=1 AND slot=0",
+        [],
+    )
+    .unwrap();
+    let db = Db::open(f.file("catalogue.sqlite3")).unwrap();
+    for (id, expected) in [(1, 4), (2, 4), (3, 6), (4, 8)] {
+        assert_eq!(db.replay_target(id).unwrap().n_players, expected);
+    }
+    // Both spectator flags are excluded, while an AI still occupies a slot.
+    conn.execute(
+        "UPDATE players SET is_observer=1 WHERE replay_id=2 AND slot=0",
+        [],
+    )
+    .unwrap();
+    conn.execute(
+        "UPDATE players SET is_commentator=1 WHERE replay_id=2 AND slot=1",
+        [],
+    )
+    .unwrap();
+    assert_eq!(db.replay_target(2).unwrap().n_players, 2);
+}
+
+#[test]
 fn duration_filters_use_fifteen_ticks_per_second() {
     let f = Fixture::new();
     seed(&f, "twenty-minutes", &[(-1, 6), (-1, 9)], 18000);

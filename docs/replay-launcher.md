@@ -6,6 +6,13 @@ There is no separate download action or configuration-file picker. Progress
 and cancellation are available during preparation; a failed attempt can be
 retried with the same Play button. If detection fails, choose the game folder.
 
+Downloads and unpacking show progress bars. Unpacking starts with an
+indeterminate bar while the package is opened, then reports progress across
+all selected files without resetting between them. For installer payloads,
+the percentage tracks compressed bytes processed; for direct ZIP contents,
+it tracks extracted bytes. Verification is shown as a separate step.
+Decompression remains single-threaded.
+
 Steam's default and additional libraries and common EA/Origin installation
 folders are searched. The selected folder is saved beside the catalogue in
 `launcher.json`. Older `sku_path` settings are migrated in memory to their
@@ -26,8 +33,19 @@ community map needs a revision-named script archive containing
 `data/scripts/scripts.lua`; a shared installed `102Scripts.big` alone cannot
 establish which historical patch it belongs to.
 
-When content is missing, the kaneswrath.com version lists are searched for
-the exact R22–R25 revision, across 1v1, 2v2, 4v4, legacy and combined pack pages. Missing
+When content is missing, Tacitus first uses cached and installed map indexes
+to identify the likely pack. An exact map entry takes priority; the same map
+in another revision can guide pack selection but cannot satisfy playback.
+Otherwise, the active participant count selects the first category: 1–2
+players prefer 1v1, 3–4 prefer 2v2, and 5–8 prefer the large-map pack.
+Observers and commentators are excluded; AI players count. FFA and team
+games with the same participant count use the same map-capacity hint.
+Without a known map match, categories too small for the match are skipped.
+
+The kaneswrath.com version lists are searched for the exact R22–R25 revision
+in that order, with legacy and combined packs as fallbacks. Match size is
+not guaranteed to equal map capacity, so an unknown map can still require
+another candidate if the first pack does not contain it. Missing
 historical downloads fail explicitly; Tacitus never substitutes the latest
 version. Download support also depends on the available package format:
 direct BIG files in ZIPs and the Unicode, non-solid LZMA NSISBI layout used

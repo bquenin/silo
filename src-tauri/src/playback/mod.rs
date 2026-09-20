@@ -8,6 +8,7 @@ mod content;
 mod download;
 mod installation;
 mod package;
+mod selection;
 
 pub use installation::{load_settings, save_settings, settings_path, Settings};
 
@@ -27,6 +28,8 @@ pub struct ReplayTarget {
     pub map_name: String,
     pub map_path: String,
     pub map_crc: String,
+    /// Active human/AI participants, excluding observers and commentators.
+    pub n_players: u32,
     pub version: [u32; 4],
 }
 

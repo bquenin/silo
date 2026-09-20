@@ -1,4 +1,5 @@
 //! Persistent, verified pack storage and exact-asset dependency selection.
+use std::collections::BTreeMap;
 use std::fs::{self, File};
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -8,7 +9,12 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use walkdir::WalkDir;
 
-use super::{archive, automatic::Control, config::GameConfig};
+use super::{
+    archive,
+    automatic::Control,
+    config::GameConfig,
+    selection::{map_identity, PackKind},
+};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CachedArchive {
@@ -172,6 +178,72 @@ pub fn contains_other_map(cache: &Path, source: &str, revision: &str, asset: &st
         }
     }
     Ok(false)
+}
+
+/// Reuse map directories from every cached/installed revision to select a
+/// download category. These are lookup hints only; resolve still requires
+/// the replay's exact asset, matching scripts and verified content.
+pub fn pack_hints(
+    game: &GameConfig,
+    cache: &Path,
+    asset: &str,
+    control: &Control<'_>,
+) -> Result<Vec<PackKind>> {
+    control.check()?;
+    let Some(identity) = map_identity(asset) else {
+        return Ok(Vec::new());
+    };
+    let mut matches = BTreeMap::new();
+    let mut inspect = |kind, entries: &[String]| {
+        for entry in entries {
+            let rank = if entry == asset {
+                0
+            } else if map_identity(entry) == Some(identity) {
+                1
+            } else {
+                continue;
+            };
+            matches
+                .entry(kind)
+                .and_modify(|old: &mut u8| *old = (*old).min(rank))
+                .or_insert(rank);
+        }
+    };
+    let packages = cache.join("packages");
+    if packages.is_dir() {
+        for entry in fs::read_dir(packages)? {
+            control.check()?;
+            let entry = entry?;
+            if !entry.file_type()?.is_dir() {
+                continue;
+            }
+            if let Ok(pack) = manifest(&entry.path()) {
+                for archive in &pack.archives {
+                    if let Some(kind) = PackKind::from_archive(&archive.name) {
+                        inspect(kind, &archive.entries);
+                    }
+                }
+            }
+        }
+    }
+    for entry in WalkDir::new(&game.root).max_depth(6).follow_links(false) {
+        control.check()?;
+        let entry = entry?;
+        if !entry.file_type().is_file() {
+            continue;
+        }
+        if let Some(kind) = PackKind::from_archive(&entry.file_name().to_string_lossy()) {
+            if let Ok(entries) = archive::entries(entry.path()) {
+                inspect(kind, &entries);
+            }
+        }
+    }
+    let mut ranked: Vec<_> = matches
+        .into_iter()
+        .map(|(kind, rank)| (rank, kind))
+        .collect();
+    ranked.sort_unstable();
+    Ok(ranked.into_iter().map(|(_, kind)| kind).collect())
 }
 
 pub fn resolve(

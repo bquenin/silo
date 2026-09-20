@@ -71,7 +71,7 @@ export interface PlaybackReport {
 export interface PlaybackProgress {
   phase: 'checking' | 'locating' | 'downloading' | 'extracting' | 'verifying' | 'preparing' | 'launching';
   message: string;
-  downloaded: number;
+  completed: number;
   total: number | null;
 }
 

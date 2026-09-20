@@ -6,13 +6,14 @@ use std::sync::atomic::{AtomicU8, Ordering};
 use anyhow::{ensure, Context, Result};
 use serde::Serialize;
 
-use super::{config, content, download, LaunchPlan, LaunchResult, ReplayTarget};
+use super::{config, content, download, selection, LaunchPlan, LaunchResult, ReplayTarget};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Progress {
     pub phase: &'static str,
     pub message: String,
-    pub downloaded: u64,
+    /// Bytes processed in the current download or extraction phase.
+    pub completed: u64,
     pub total: Option<u64>,
 }
 
@@ -46,7 +47,7 @@ impl Control<'_> {
         (self.progress)(Progress {
             phase,
             message: message.into(),
-            downloaded: 0,
+            completed: 0,
             total: None,
         });
         Ok(())
@@ -181,7 +182,9 @@ pub fn prepare(
         let revision = revision
             .as_deref()
             .context("The required base-game map is missing. Repair the game installation.")?;
-        download::acquire(cache, &asset, revision, control)?;
+        let known = content::pack_hints(&game, cache, &asset, control)?;
+        let sources = selection::pages(revision, &known, target.n_players);
+        download::acquire(cache, &asset, revision, &sources, control)?;
         found = content::resolve(&game, cache, &asset, Some(revision), true, control)?;
     }
     let found = found.context("The required map or matching scripts are not available locally.")?;

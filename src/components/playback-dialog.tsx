@@ -31,7 +31,7 @@ export function PlaybackDialog({ replay, onClose }: { replay: Replay; onClose: (
     request.current = id;
     setError(null);
     setCancelled(false);
-    setProgress({ phase: 'checking', message: 'Preparing replay…', downloaded: 0, total: null });
+    setProgress({ phase: 'checking', message: 'Preparing replay…', completed: 0, total: null });
     try {
       await launchReplay(Number(replay.id), id, (event) => {
         if (mounted.current && request.current === id) setProgress(event);
@@ -114,7 +114,7 @@ export function PlaybackDialog({ replay, onClose }: { replay: Replay; onClose: (
   }
 
   const busy = progress !== null;
-  const percent = progress?.total ? Math.min(100, progress.downloaded / progress.total * 100) : undefined;
+  const percent = progress?.total ? Math.min(100, Math.max(0, progress.completed / progress.total * 100)) : undefined;
 
   return (
     <dialog ref={dialog} onCancel={onClose}
@@ -134,13 +134,17 @@ export function PlaybackDialog({ replay, onClose }: { replay: Replay; onClose: (
           <>
             <p className="flex gap-2 items-center text-sm"><Loader2 size={16} className="animate-spin shrink-0" />
               {progress?.message ?? 'Finding your game…'}</p>
-            {progress?.phase === 'downloading' && (
+            {(progress?.phase === 'downloading' || progress?.phase === 'extracting') && (
               <div className="mt-3">
-                <progress aria-label="Map download progress" max={100} value={percent}
+                <progress aria-label={progress.phase === 'downloading' ? 'Map download progress' : 'Map unpacking progress'} max={100} value={percent}
                   className="w-full h-2 accent-accent" />
-                <p className="text-xs text-fg-dim mt-1">
-                  {size(progress.downloaded)}{progress.total != null ? ` of ${size(progress.total)}` : ''}
-                </p>
+                {progress.phase === 'downloading' ? (
+                  <p className="text-xs text-fg-dim mt-1">
+                    {size(progress.completed)}{progress.total != null ? ` of ${size(progress.total)}` : ''}
+                  </p>
+                ) : percent !== undefined && (
+                  <p className="text-xs text-fg-dim mt-1 tabular-nums">{Math.floor(percent)}%</p>
+                )}
               </div>
             )}
           </>

@@ -41,7 +41,7 @@ it('shows download progress and cancels the matching request', async () => {
   });
   render(<PlaybackDialog replay={replay} onClose={vi.fn()} />);
   await waitFor(() => expect(launchReplay).toHaveBeenCalledOnce());
-  act(() => update({ phase: 'downloading', message: 'Downloading R24g replay content…', downloaded: 50 * 1024 ** 2, total: 100 * 1024 ** 2 }));
+  act(() => update({ phase: 'downloading', message: 'Downloading R24g replay content…', completed: 50 * 1024 ** 2, total: 100 * 1024 ** 2 }));
   expect(screen.getByRole('progressbar').getAttribute('value')).toBe('50');
   expect(screen.getByText('50 MB of 100 MB')).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
@@ -61,6 +61,34 @@ it('asks only for the game folder when detection fails and continues after selec
   expect(open).toHaveBeenCalledWith(expect.objectContaining({ directory: true, multiple: false }));
   expect(setGameInstallation).toHaveBeenCalledWith('D:/Games/KW');
   expect(launchReplay).toHaveBeenCalledOnce();
+});
+
+it('shows unpacking progress after the download and clears it for verification', async () => {
+  let update!: (progress: PlaybackProgress) => void;
+  let finish!: (value: { pid: number }) => void;
+  vi.mocked(launchReplay).mockImplementation((_id, _request, handler) => {
+    update = handler;
+    return new Promise((resolve) => { finish = resolve; });
+  });
+  render(<PlaybackDialog replay={replay} onClose={vi.fn()} />);
+  await waitFor(() => expect(launchReplay).toHaveBeenCalledOnce());
+  act(() => update({ phase: 'downloading', message: 'Downloading replay content…', completed: 100, total: 100 }));
+  expect(screen.getByRole('progressbar', { name: 'Map download progress' }).getAttribute('value')).toBe('100');
+  act(() => update({ phase: 'extracting', message: 'Unpacking replay content…', completed: 0, total: null }));
+  expect(screen.getByRole('progressbar', { name: 'Map unpacking progress' }).hasAttribute('value')).toBe(false);
+  expect(screen.queryByText('100%')).toBeNull();
+  act(() => update({ phase: 'extracting', message: 'Unpacking replay content…', completed: 45, total: 100 }));
+  expect(screen.getByRole('progressbar', { name: 'Map unpacking progress' }).getAttribute('value')).toBe('45');
+  expect(screen.getByText('45%')).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Cancel' })).toBeTruthy();
+  act(() => update({ phase: 'extracting', message: 'Unpacking replay content…', completed: 999, total: 1000 }));
+  expect(screen.getByText('99%')).toBeTruthy();
+  act(() => update({ phase: 'extracting', message: 'Unpacking replay content…', completed: 1000, total: 1000 }));
+  expect(screen.getByText('100%')).toBeTruthy();
+  act(() => update({ phase: 'verifying', message: 'Verifying downloaded map files…', completed: 0, total: null }));
+  expect(screen.queryByRole('progressbar')).toBeNull();
+  await act(async () => finish({ pid: 123 }));
+  expect(screen.getByText("Kane's Wrath has started.")).toBeTruthy();
 });
 
 it('offers the same Play action after a failed download and cancels on close', async () => {

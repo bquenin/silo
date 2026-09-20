@@ -69,6 +69,7 @@ impl Fixture {
                 map_name: "[R24] Map".into(),
                 map_path: "283data/maps/official/map 1.02+__24g".into(),
                 map_crc: "19".into(),
+                n_players: 2,
                 version: [1, 2, 0, 0],
             },
         }
@@ -92,9 +93,12 @@ impl Fixture {
         );
     }
     fn cached(&self, revision: &str) -> PathBuf {
+        self.cached_pack(revision, "1v1")
+    }
+    fn cached_pack(&self, revision: &str, group: &str) -> PathBuf {
         let pending = tempfile::tempdir_in(self._temporary.path()).unwrap();
         big(
-            &pending.path().join(format!("R{revision}1v1Maps.big")),
+            &pending.path().join(format!("R{revision}{group}Maps.big")),
             &[&Self::asset(revision)],
         );
         big(
@@ -176,6 +180,59 @@ fn cached_revisions_coexist_and_replay_offline_with_their_own_scripts() {
     let prepared = f.prepare().unwrap();
     assert!(prepared.archives.iter().all(|p| p.starts_with(&newer)));
     assert!(older.is_dir() && newer.is_dir());
+}
+
+#[test]
+fn cached_map_identity_guides_downloads_without_substituting_other_revisions() {
+    use super::super::selection::PackKind;
+    let f = Fixture::new();
+    f.cached_pack("24j", "2v2");
+    let game = config::base(&f.game, f.target.version).unwrap();
+    let cancellation = Cancellation::default();
+    let control = Control {
+        cancelled: &cancellation,
+        progress: &|_| {},
+    };
+    let asset = Fixture::asset("24g");
+    let known = content::pack_hints(&game, &f.cache, &asset, &control).unwrap();
+    assert_eq!(known, [PackKind::TwoVsTwo]);
+    // A two-player match on this known four-player map must not select 1v1.
+    assert!(selection::pages("R24g", &known, f.target.n_players)[0].ends_with("r24-2vs2-map-pack/"));
+    assert!(f.prepare().is_err()); // R24j content cannot satisfy R24g playback.
+    f.cached("24g");
+    let known = content::pack_hints(&game, &f.cache, &asset, &control).unwrap();
+    assert_eq!(known, [PackKind::Duel, PackKind::TwoVsTwo]); // Exact revision first.
+    let unrelated = asset.replace("map 1.02+", "map redux 1.02+");
+    assert!(content::pack_hints(&game, &f.cache, &unrelated, &control)
+        .unwrap()
+        .is_empty());
+}
+
+#[test]
+fn installed_map_indexes_guide_missing_revisions_and_ignore_thumbnails() {
+    use super::super::selection::PackKind;
+    let f = Fixture::new();
+    let game = config::base(&f.game, f.target.version).unwrap();
+    big(
+        &f.game.join("Patch103/R23z2v2Maps.big"),
+        &[&Fixture::asset("23z")],
+    );
+    big(
+        &f.game.join("Patch103/R24k1v1Maps.big"),
+        &[&Fixture::asset("24k").replace(".map", ".tga")],
+    );
+    let cancellation = Cancellation::default();
+    let control = Control {
+        cancelled: &cancellation,
+        progress: &|_| {},
+    };
+    assert_eq!(
+        content::pack_hints(&game, &f.cache, &Fixture::asset("24g"), &control).unwrap(),
+        [PackKind::TwoVsTwo]
+    );
+    assert!(f.prepare().is_err());
+    cancellation.cancel();
+    assert!(content::pack_hints(&game, &f.cache, &Fixture::asset("24g"), &control).is_err());
 }
 
 #[test]

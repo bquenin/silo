@@ -5,20 +5,90 @@
 //! replacements, registry changes, or supplied configuration are executed.
 //! Supported installer layout: Unicode, non-solid LZMA, with the NSISBI
 //! 64-bit item lengths and 24-bit chunk framing used by the historical packs.
+use std::cell::Cell;
 use std::collections::BTreeMap;
 use std::fs::{self, File};
 use std::io::{BufReader, Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
 
 use anyhow::{ensure, Context, Result};
 use lzma_rust2::LzmaReader;
 
-use super::automatic::Control;
+use super::automatic::{Control, Progress};
 
 const MAX_FILE: u64 = 5 * 1024 * 1024 * 1024;
 const MAX_EXPANDED: u64 = 16 * 1024 * 1024 * 1024;
 const MAX_HEADER: u64 = 16 * 1024 * 1024;
 const SIGNATURE: &[u8] = b"\xef\xbe\xad\xdeNullsoftInst";
+
+/// One byte budget for all selected files. Installer progress counts compressed
+/// input, whose size is known before decoding; ZIP progress counts output.
+struct ExtractionProgress<'a, 'c> {
+    control: &'a Control<'c>,
+    total: u64,
+    completed: Cell<u64>,
+    last_update: Cell<Instant>,
+}
+
+impl<'a, 'c> ExtractionProgress<'a, 'c> {
+    fn new(control: &'a Control<'c>, total: u64) -> Result<Self> {
+        control.check()?;
+        let progress = Self {
+            control,
+            total,
+            completed: Cell::new(0),
+            last_update: Cell::new(Instant::now() - Duration::from_millis(150)),
+        };
+        progress.emit(0);
+        Ok(progress)
+    }
+
+    fn emit(&self, completed: u64) {
+        (self.control.progress)(Progress {
+            phase: "extracting",
+            message: "Unpacking replay content…".into(),
+            completed,
+            total: Some(self.total),
+        });
+    }
+
+    fn advance(&self, bytes: u64) {
+        if bytes == 0 {
+            return;
+        }
+        self.completed.set(self.completed.get() + bytes);
+        if self.last_update.get().elapsed() >= Duration::from_millis(150) {
+            // Buffered input can reach EOF before decoding and validation end.
+            // Reserve 100% for successful completion of every selected file.
+            self.emit(self.completed.get().min(self.total.saturating_sub(1)));
+            self.last_update.set(Instant::now());
+        }
+    }
+
+    fn finish(&self) -> Result<()> {
+        self.control.check()?;
+        ensure!(
+            self.completed.get() == self.total,
+            "The map package changed while unpacking."
+        );
+        self.emit(self.total);
+        self.control.check()
+    }
+}
+
+struct ProgressReader<R, F> {
+    inner: R,
+    on_read: F,
+}
+
+impl<R: Read, F: FnMut(u64)> Read for ProgressReader<R, F> {
+    fn read(&mut self, buffer: &mut [u8]) -> std::io::Result<usize> {
+        let read = self.inner.read(buffer)?;
+        (self.on_read)(read as u64);
+        Ok(read)
+    }
+}
 
 fn wanted(name: &str, revision: &str) -> bool {
     let name = name.to_ascii_lowercase();
@@ -82,7 +152,9 @@ pub fn unpack(
                 "Invalid map archive in the downloaded package."
             );
             ensure!(
-                files.insert(name.to_ascii_lowercase(), i).is_none(),
+                files
+                    .insert(name.to_ascii_lowercase(), (i, entry.size()))
+                    .is_none(),
                 "Duplicate map archives in the package."
             );
         } else if name.to_ascii_lowercase().ends_with(".exe") {
@@ -91,12 +163,21 @@ pub fn unpack(
     }
     if !files.is_empty() {
         ensure!(files.len() <= 128, "Too many map archives in the package.");
+        let expected: u64 = files.values().map(|(_, size)| size).sum();
+        ensure!(
+            expected <= MAX_EXPANDED,
+            "The map package expands beyond the supported size."
+        );
+        let progress = ExtractionProgress::new(control, expected)?;
         let mut total = 0;
-        for (name, index) in files {
+        for (name, (index, size)) in files {
             let mut entry = zip.by_index(index)?;
-            let size = entry.size();
+            let tracked = ProgressReader {
+                inner: &mut entry,
+                on_read: |bytes| progress.advance(bytes),
+            };
             let written = copy_limited(
-                &mut entry,
+                tracked,
                 &mut File::create(output.join(name))?,
                 MAX_FILE.min(MAX_EXPANDED - total),
                 control,
@@ -104,6 +185,7 @@ pub fn unpack(
             ensure!(size == written, "Incomplete map archive.");
             total += written;
         }
+        progress.finish()?;
     } else {
         ensure!(
             installers.len() == 1,
@@ -136,16 +218,7 @@ fn u64_at(data: &[u8], at: usize) -> Result<u64> {
     Ok(u32_at(data, at)? as u64 | (u32_at(data, at + 4)? as u64) << 32)
 }
 
-/// Decode one bounded, non-solid data item. NSISBI compresses independent
-/// chunks with their own five-byte LZMA properties and an explicit end marker.
-fn item(
-    file: &mut File,
-    offset: u64,
-    end: u64,
-    output: &mut impl Write,
-    limit: u64,
-    control: &Control<'_>,
-) -> Result<u64> {
+fn item_header(file: &mut File, offset: u64, end: u64) -> Result<(bool, u64)> {
     ensure!(
         offset.checked_add(8).is_some_and(|n| n <= end),
         "Installer item outside package"
@@ -157,7 +230,33 @@ fn item(
     let compressed = length >> 63 != 0;
     let size = length & (u64::MAX >> 1);
     ensure!(size <= end - offset - 8, "Truncated installer item");
-    let mut input = file.take(size);
+    Ok((compressed, size))
+}
+
+/// Decode one bounded, non-solid data item. NSISBI compresses independent
+/// chunks with their own five-byte LZMA properties and an explicit end marker.
+fn item(
+    file: &mut File,
+    offset: u64,
+    end: u64,
+    output: &mut impl Write,
+    limit: u64,
+    control: &Control<'_>,
+    progress: Option<&ExtractionProgress<'_, '_>>,
+) -> Result<u64> {
+    let (compressed, size) = item_header(file, offset, end)?;
+    if let Some(progress) = progress {
+        progress.advance(8);
+    }
+    let tracked = ProgressReader {
+        inner: file,
+        on_read: |bytes| {
+            if let Some(progress) = progress {
+                progress.advance(bytes);
+            }
+        },
+    };
+    let mut input = tracked.take(size);
     if !compressed {
         let written = copy_limited(&mut input, output, limit, control)?;
         ensure!(written == size, "Truncated uncompressed installer item");
@@ -328,17 +427,26 @@ fn extract_installer(
         &mut header,
         expected_header,
         control,
+        None,
     )?;
     ensure!(
         header.len() as u64 == expected_header,
         "Incomplete installer header"
     );
-    let mut total = 0;
-    for (name, offset) in records(&header, revision)? {
-        control.stage("extracting", "Unpacking replay content…")?;
-        let offset = data
-            .checked_add(offset)
+    let mut files = records(&header, revision)?;
+    let mut expected = 0;
+    for offset in files.values_mut() {
+        control.check()?;
+        *offset = data
+            .checked_add(*offset)
             .context("Invalid installer file offset")?;
+        let (_, size) = item_header(&mut file, *offset, end)?;
+        expected += 8 + size;
+    }
+    let progress = ExtractionProgress::new(control, expected)?;
+    let mut total = 0;
+    for (name, offset) in files {
+        control.check()?;
         let mut target = File::create(output.join(&name))?;
         total += item(
             &mut file,
@@ -347,15 +455,32 @@ fn extract_installer(
             &mut target,
             MAX_FILE.min(MAX_EXPANDED - total),
             control,
+            Some(&progress),
         )?;
     }
-    Ok(())
+    progress.finish()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::playback::automatic::Cancellation;
+    use std::cell::RefCell;
+
+    fn compressed_item(chunks: usize) -> Vec<u8> {
+        let compressed = [
+            93, 0, 0, 128, 0, 0, 33, 18, 68, 248, 77, 228, 25, 81, 243, 76, 200, 139, 21, 132, 138,
+            46, 80, 3, 250, 246, 141, 49, 255, 249, 161, 224, 0,
+        ];
+        let size = chunks * (compressed.len() + 3) + 3;
+        let mut bytes = ((size as u64) | (1 << 63)).to_le_bytes().to_vec();
+        for _ in 0..chunks {
+            bytes.extend_from_slice(&(compressed.len() as u32).to_le_bytes()[..3]);
+            bytes.extend(compressed);
+        }
+        bytes.extend([0, 0, 0]);
+        bytes
+    }
 
     fn header() -> Vec<u8> {
         let mut header = vec![0; 60 + 36 * 6];
@@ -411,16 +536,7 @@ mod tests {
 
     #[test]
     fn chunked_lzma_checks_terminators_bounds_and_cancellation() {
-        let compressed = [
-            93, 0, 0, 128, 0, 0, 33, 18, 68, 248, 77, 228, 25, 81, 243, 76, 200, 139, 21, 132, 138,
-            46, 80, 3, 250, 246, 141, 49, 255, 249, 161, 224, 0,
-        ];
-        let mut bytes = ((compressed.len() as u64 + 6) | (1 << 63))
-            .to_le_bytes()
-            .to_vec();
-        bytes.extend_from_slice(&(compressed.len() as u32).to_le_bytes()[..3]);
-        bytes.extend(compressed);
-        bytes.extend([0, 0, 0]);
+        let mut bytes = compressed_item(1);
         let root = tempfile::tempdir().unwrap();
         let path = root.path().join("item.dat");
         fs::write(&path, &bytes).unwrap();
@@ -437,6 +553,7 @@ mod tests {
                 output,
                 limit,
                 &control,
+                None,
             )
         };
         let mut out = Vec::new();
@@ -475,14 +592,131 @@ mod tests {
         let stage = root.path().join("staging");
         fs::create_dir(&stage).unwrap();
         let cancel = Cancellation::default();
+        let events = RefCell::new(Vec::new());
+        let on_progress = |event| events.borrow_mut().push(event);
         let control = Control {
             cancelled: &cancel,
-            progress: &|_| {},
+            progress: &on_progress,
         };
         let output = unpack(&zip_path, &stage, "R24g", &control).unwrap();
         assert_eq!(fs::read(output.join("102scripts.big")).unwrap(), b"scripts");
         assert_eq!(fs::read_dir(output).unwrap().count(), 2);
         assert!(!root.path().join("102Scripts.big").exists());
         assert!(!root.path().join("CNC3EP1_english_1.2.SkuDef").exists());
+        assert_progress(&events.borrow(), 10, true);
+    }
+
+    fn assert_progress(events: &[Progress], total: u64, complete: bool) {
+        let measured: Vec<_> = events
+            .iter()
+            .filter(|event| event.total.is_some())
+            .collect();
+        assert!(measured.len() >= 2);
+        assert_eq!(measured[0].completed, 0);
+        assert!(measured.iter().all(|event| event.phase == "extracting"
+            && event.total == Some(total)
+            && event.completed <= total));
+        assert!(measured
+            .windows(2)
+            .all(|pair| pair[0].completed <= pair[1].completed));
+        assert!(measured
+            .iter()
+            .any(|event| event.completed > 0 && event.completed < total));
+        assert_eq!(measured.last().unwrap().completed == total, complete);
+        assert!(measured[..measured.len() - 1]
+            .iter()
+            .all(|event| event.completed < total));
+    }
+
+    fn installer_zip(root: &Path, corrupt: bool) -> (PathBuf, u64) {
+        use zip::{write::SimpleFileOptions, ZipWriter};
+        let mut header = header();
+        let texture = b"texture";
+        let mut data = (texture.len() as u64).to_le_bytes().to_vec();
+        data.extend(texture);
+        // Both texture records refer to the first item. The map record uses
+        // the second item; its output directory is Patch103 as well.
+        for n in [1, 2] {
+            header[60 + n * 36 + 12..60 + n * 36 + 20].copy_from_slice(&0u64.to_le_bytes());
+        }
+        let patch = u32_at(&header, 64).unwrap();
+        header[60 + 4 * 36 + 4..60 + 4 * 36 + 8].copy_from_slice(&patch.to_le_bytes());
+        header[60 + 5 * 36 + 12..60 + 5 * 36 + 20]
+            .copy_from_slice(&(data.len() as u64).to_le_bytes());
+        data.extend(compressed_item(3));
+        if corrupt {
+            // All declared lengths are valid; only the final terminator is bad.
+            *data.last_mut().unwrap() = 1;
+        }
+        let total = data.len() as u64;
+        let mut payload = vec![0; 512];
+        payload[..2].copy_from_slice(b"MZ");
+        payload.extend(0x50u32.to_le_bytes());
+        payload.extend(SIGNATURE);
+        payload.extend((header.len() as u32).to_le_bytes());
+        payload.extend((36 + 8 + header.len() as u32 + data.len() as u32).to_le_bytes());
+        payload.extend(0u64.to_le_bytes());
+        payload.extend((header.len() as u64).to_le_bytes());
+        payload.extend(header);
+        payload.extend(data);
+        let path = root.join("pack.zip");
+        let mut zip = ZipWriter::new(File::create(&path).unwrap());
+        zip.start_file("pack.exe", SimpleFileOptions::default())
+            .unwrap();
+        zip.write_all(&payload).unwrap();
+        zip.finish().unwrap();
+        (path, total)
+    }
+
+    #[test]
+    fn installer_progress_covers_selected_files_and_chunks_without_resetting() {
+        let root = tempfile::tempdir().unwrap();
+        let (path, total) = installer_zip(root.path(), false);
+        let stage = root.path().join("staging");
+        fs::create_dir(&stage).unwrap();
+        let cancel = Cancellation::default();
+        let events = RefCell::new(Vec::new());
+        let on_progress = |event| events.borrow_mut().push(event);
+        let control = Control {
+            cancelled: &cancel,
+            progress: &on_progress,
+        };
+        let output = unpack(&path, &stage, "R24g", &control).unwrap();
+        assert_eq!(
+            fs::read(output.join("102texturefix.big")).unwrap(),
+            b"texture"
+        );
+        assert_eq!(
+            fs::read(output.join("r24g1v1maps.big")).unwrap(),
+            b"BIGF test payload".repeat(3)
+        );
+        assert_progress(&events.borrow(), total, true);
+    }
+
+    #[test]
+    fn extraction_errors_and_cancellation_do_not_report_completion() {
+        for corrupt in [true, false] {
+            let root = tempfile::tempdir().unwrap();
+            let (path, total) = installer_zip(root.path(), corrupt);
+            let stage = root.path().join("staging");
+            fs::create_dir(&stage).unwrap();
+            let cancel = Cancellation::default();
+            let events = RefCell::new(Vec::new());
+            let on_progress = |event: Progress| {
+                if !corrupt && event.completed > 0 {
+                    cancel.cancel();
+                }
+                events.borrow_mut().push(event);
+            };
+            let control = Control {
+                cancelled: &cancel,
+                progress: &on_progress,
+            };
+            let error = unpack(&path, &stage, "R24g", &control).unwrap_err();
+            if !corrupt {
+                assert!(format!("{error:#}").contains("cancelled"));
+            }
+            assert_progress(&events.borrow(), total, false);
+        }
     }
 }

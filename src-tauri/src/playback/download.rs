@@ -24,36 +24,6 @@ pub fn supported(revision: &str) -> bool {
         .is_match(revision)
 }
 
-fn pages(revision: &str) -> Vec<String> {
-    let major: String = revision
-        .chars()
-        .skip(1)
-        .take_while(char::is_ascii_digit)
-        .collect();
-    let mut slugs = vec![
-        format!("r{major}-1vs1-map-pack"),
-        format!("r{major}-2vs2-map-pack"),
-        format!(
-            "r{major}-{}-map-pack",
-            if major == "24" { "4v4" } else { "4vs4" }
-        ),
-        format!("r{major}-legacy-map-pack"),
-    ];
-    if major == "23" {
-        slugs.push("legacy-map-pack-r23".into());
-    }
-    if major == "24" {
-        slugs.push("r24-all-in-one-map-pack".into());
-    }
-    if major == "25" {
-        slugs = vec!["r25-all-in-one-map-pack".into()];
-    }
-    slugs
-        .into_iter()
-        .map(|s| format!("https://kaneswrath.com/download/{s}/"))
-        .collect()
-}
-
 /// Fail closed if the provider changes its version-list markup. Exact labels
 /// select a historical version; a latest-version link is never a substitute.
 fn version_url(html: &str, revision: &str) -> Result<Option<Url>> {
@@ -185,7 +155,7 @@ async fn package(
             (control.progress)(Progress {
                 phase: "downloading",
                 message: format!("Downloading {revision} replay content…"),
-                downloaded,
+                completed: downloaded,
                 total,
             });
             last_update = std::time::Instant::now();
@@ -233,7 +203,13 @@ fn cleanup_staging(stages: &Path) -> Result<()> {
     Ok(())
 }
 
-pub fn acquire(cache: &Path, asset: &str, revision: &str, control: &Control<'_>) -> Result<()> {
+pub fn acquire(
+    cache: &Path,
+    asset: &str,
+    revision: &str,
+    sources: &[String],
+    control: &Control<'_>,
+) -> Result<()> {
     ensure!(
         supported(revision),
         "Automatic downloads are not available for map version {revision}."
@@ -248,12 +224,12 @@ pub fn acquire(cache: &Path, asset: &str, revision: &str, control: &Control<'_>)
     fs::create_dir_all(&stages)?;
     cleanup_staging(&stages)?;
     let mut failures = Vec::new();
-    for source_page in pages(revision) {
+    for source_page in sources {
         control.stage(
             "locating",
             format!("Finding the exact {revision} map pack…"),
         )?;
-        let html = match runtime.block_on(page(&client, &source_page, control)) {
+        let html = match runtime.block_on(page(&client, source_page, control)) {
             Ok(Some(html)) => html,
             Ok(None) => continue,
             Err(error) => {
@@ -301,7 +277,7 @@ pub fn acquire(cache: &Path, asset: &str, revision: &str, control: &Control<'_>)
                 .block_on(package(
                     &client,
                     &url,
-                    &source_page,
+                    source_page,
                     &pending,
                     revision,
                     control,
@@ -505,16 +481,6 @@ mod tests {
             version_url(&html.replace("Map-Pack.zip", "Map-Pack-1.03.zip"), "R24j")
                 .unwrap()
                 .is_none()
-        );
-        assert!(pages("R22j")
-            .iter()
-            .any(|page| page.ends_with("r22-4vs4-map-pack/")));
-        assert!(pages("R24g")
-            .iter()
-            .any(|page| page.ends_with("r24-4v4-map-pack/")));
-        assert_eq!(
-            pages("R25i"),
-            ["https://kaneswrath.com/download/r25-all-in-one-map-pack/"]
         );
         assert!(version_url(&html.replace("kaneswrath.com", "example.org"), "R24j").is_err());
     }

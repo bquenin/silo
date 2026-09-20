@@ -53,6 +53,7 @@ impl Fixture {
                 map_name: "[R24] Abandoned Subway".into(),
                 map_path: "283data/maps/official/abandoned subway 1.02+__24g".into(),
                 map_crc: "19".into(),
+                n_players: 2,
                 version: [1, 2, 0, 0],
             },
             root,
