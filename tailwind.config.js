@@ -15,7 +15,8 @@ export default {
         fg: {
           DEFAULT: '#e8e8ea',
           muted: '#8b8b91',
-          dim: '#56565c',
+          dim: '#7a7a82',
+          faint: '#56565c',
         },
         accent: {
           gdi: '#e6c34a',

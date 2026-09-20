@@ -70,3 +70,8 @@ export function formatDuration(seconds?: number): string {
   const whole = Math.floor(seconds);
   return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, '0')}`;
 }
+
+/** Strip the "[pack] " prefix and trailing " 1.02+ …" revision suffix from a raw map name. */
+export function displayMapName(raw: string): string {
+  return raw.replace(/^\[[^\]]+\]\s*/, '').replace(/\s+\d+\.\d+\+.*$/, '');
+}

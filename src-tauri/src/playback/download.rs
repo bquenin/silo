@@ -122,6 +122,7 @@ async fn package(
     referer: &str,
     path: &Path,
     revision: &str,
+    label: &str,
     control: &Control<'_>,
 ) -> Result<String> {
     let response = tokio::select! {
@@ -154,7 +155,7 @@ async fn package(
         if last_update.elapsed() >= Duration::from_millis(150) {
             (control.progress)(Progress {
                 phase: "downloading",
-                message: format!("Downloading {revision} replay content…"),
+                message: format!("Downloading the {revision} {label}…"),
                 completed: downloaded,
                 total,
             });
@@ -225,6 +226,7 @@ pub fn acquire(
     cleanup_staging(&stages)?;
     let mut failures = Vec::new();
     for source_page in sources {
+        let label = super::selection::pack_label(source_page);
         control.stage(
             "locating",
             format!("Finding the exact {revision} map pack…"),
@@ -270,7 +272,7 @@ pub fn acquire(
         } else {
             control.stage(
                 "downloading",
-                format!("Downloading {revision} replay content…"),
+                format!("Downloading the {revision} {label}…"),
             )?;
             let pending = stage.path().join("package.part");
             let hash = runtime
@@ -280,6 +282,7 @@ pub fn acquire(
                     source_page,
                     &pending,
                     revision,
+                    label,
                     control,
                 ))
                 .context(
@@ -294,7 +297,7 @@ pub fn acquire(
             fs::write(&checksum_path, &hash)?;
             hash
         };
-        let output = super::package::unpack(&package_path, stage.path(), revision, control)?;
+        let output = super::package::unpack(&package_path, stage.path(), revision, label, control)?;
         let published = content::publish(&output, cache, revision, url.as_str(), &hash, control)?;
         // Extracted content is the persistent cache; the compressed copy is
         // no longer needed after successful verification and publication.
@@ -384,6 +387,7 @@ mod tests {
                 "",
                 &root.path().join("partial"),
                 "R24g",
+                "1v1 map pack",
                 &control
             ))
             .is_err());
@@ -398,6 +402,7 @@ mod tests {
                 "",
                 &root.path().join("complete"),
                 "R24g",
+                "1v1 map pack",
                 &control,
             ))
             .unwrap();
@@ -418,6 +423,7 @@ mod tests {
                 "",
                 &root.path().join("cancelled"),
                 "R24g",
+                "1v1 map pack",
                 &control
             ))
             .unwrap_err()

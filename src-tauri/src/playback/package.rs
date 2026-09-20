@@ -27,16 +27,18 @@ const SIGNATURE: &[u8] = b"\xef\xbe\xad\xdeNullsoftInst";
 struct ExtractionProgress<'a, 'c> {
     control: &'a Control<'c>,
     total: u64,
+    message: String,
     completed: Cell<u64>,
     last_update: Cell<Instant>,
 }
 
 impl<'a, 'c> ExtractionProgress<'a, 'c> {
-    fn new(control: &'a Control<'c>, total: u64) -> Result<Self> {
+    fn new(control: &'a Control<'c>, total: u64, label: &str) -> Result<Self> {
         control.check()?;
         let progress = Self {
             control,
             total,
+            message: format!("Unpacking the {label}…"),
             completed: Cell::new(0),
             last_update: Cell::new(Instant::now() - Duration::from_millis(150)),
         };
@@ -47,7 +49,7 @@ impl<'a, 'c> ExtractionProgress<'a, 'c> {
     fn emit(&self, completed: u64) {
         (self.control.progress)(Progress {
             phase: "extracting",
-            message: "Unpacking replay content…".into(),
+            message: self.message.clone(),
             completed,
             total: Some(self.total),
         });
@@ -130,9 +132,10 @@ pub fn unpack(
     package: &Path,
     stage: &Path,
     revision: &str,
+    label: &str,
     control: &Control<'_>,
 ) -> Result<PathBuf> {
-    control.stage("extracting", "Unpacking replay content…")?;
+    control.stage("extracting", format!("Unpacking the {label}…"))?;
     let mut zip = zip::ZipArchive::new(File::open(package)?)
         .context("The map provider did not return a valid ZIP package. Press Play to retry.")?;
     ensure!(
@@ -168,7 +171,7 @@ pub fn unpack(
             expected <= MAX_EXPANDED,
             "The map package expands beyond the supported size."
         );
-        let progress = ExtractionProgress::new(control, expected)?;
+        let progress = ExtractionProgress::new(control, expected, label)?;
         let mut total = 0;
         for (name, (index, size)) in files {
             let mut entry = zip.by_index(index)?;
@@ -200,7 +203,7 @@ pub fn unpack(
         let mut file = File::create(&payload)?;
         copy_limited(&mut entry, &mut file, MAX_FILE, control)?;
         drop(file);
-        extract_installer(&payload, &output, revision, control).context(
+        extract_installer(&payload, &output, revision, label, control).context(
             "This map pack could not be unpacked safely. Its installer format may be unsupported.",
         )?;
     }
@@ -383,6 +386,7 @@ fn extract_installer(
     payload: &Path,
     output: &Path,
     revision: &str,
+    label: &str,
     control: &Control<'_>,
 ) -> Result<()> {
     let mut file = File::open(payload)?;
@@ -443,7 +447,7 @@ fn extract_installer(
         let (_, size) = item_header(&mut file, *offset, end)?;
         expected += 8 + size;
     }
-    let progress = ExtractionProgress::new(control, expected)?;
+    let progress = ExtractionProgress::new(control, expected, label)?;
     let mut total = 0;
     for (name, offset) in files {
         control.check()?;
@@ -598,7 +602,7 @@ mod tests {
             cancelled: &cancel,
             progress: &on_progress,
         };
-        let output = unpack(&zip_path, &stage, "R24g", &control).unwrap();
+        let output = unpack(&zip_path, &stage, "R24g", "1v1 map pack", &control).unwrap();
         assert_eq!(fs::read(output.join("102scripts.big")).unwrap(), b"scripts");
         assert_eq!(fs::read_dir(output).unwrap().count(), 2);
         assert!(!root.path().join("102Scripts.big").exists());
@@ -681,7 +685,7 @@ mod tests {
             cancelled: &cancel,
             progress: &on_progress,
         };
-        let output = unpack(&path, &stage, "R24g", &control).unwrap();
+        let output = unpack(&path, &stage, "R24g", "1v1 map pack", &control).unwrap();
         assert_eq!(
             fs::read(output.join("102texturefix.big")).unwrap(),
             b"texture"
@@ -712,7 +716,7 @@ mod tests {
                 cancelled: &cancel,
                 progress: &on_progress,
             };
-            let error = unpack(&path, &stage, "R24g", &control).unwrap_err();
+            let error = unpack(&path, &stage, "R24g", "1v1 map pack", &control).unwrap_err();
             if !corrupt {
                 assert!(format!("{error:#}").contains("cancelled"));
             }

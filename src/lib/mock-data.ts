@@ -10,22 +10,25 @@ function deterministicHash(s: string): number {
 }
 
 const seedReplays: Replay[] = (raw as unknown as Replay[]).map((r) => {
-  const h = deterministicHash(r.id);
-  const duration_s = 240 + (h % 1200);
-  const days_ago = h % 1800;
-  const recorded_at = new Date(Date.now() - days_ago * 86400000).toISOString();
   // Synthesize a simple teams array from players[] for mock display.
   const teams = r.players?.length === 2
     ? [[r.players[0]], [r.players[1]]]
     : r.players?.map((p) => [p]) ?? [];
-  return { ...r, duration_s, recorded_at, teams };
+  return { ...r, teams };
 });
 
 // Duplicate the sample into ~600 entries so we can validate infinite scroll.
+// Each copy is re-seeded from its own id so the demo doesn't look like one row
+// repeated 10 times.
 export const REPLAYS: Replay[] = [];
 for (let i = 0; i < 10; i++) {
   for (const r of seedReplays) {
-    REPLAYS.push({ ...r, id: `${r.id}-${i}` });
+    const id = `${r.id}-${i}`;
+    const h = deterministicHash(id);
+    const duration_s = 240 + (h % 1200);
+    const days_ago = h % 1800;
+    const recorded_at = new Date(Date.now() - days_ago * 86400000).toISOString();
+    REPLAYS.push({ ...r, id, duration_s, recorded_at });
   }
 }
 

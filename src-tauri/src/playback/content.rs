@@ -138,7 +138,7 @@ pub fn cached(
                 break;
             }
             if verify {
-                control.stage("verifying", "Verifying cached replay content…")?;
+                control.stage("verifying", "Verifying the cached map pack…")?;
                 if hash_file(&path, control)?.0 != a.sha256 {
                     valid = false;
                     break;

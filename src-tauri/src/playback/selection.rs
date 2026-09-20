@@ -53,6 +53,24 @@ pub fn map_identity(asset: &str) -> Option<&str> {
     (!name.is_empty() && valid_revision(revision)).then_some(name)
 }
 
+/// Human label for the pack behind a download page, e.g. "1v1 map pack".
+pub fn pack_label(page: &str) -> &'static str {
+    let slug = page.trim_end_matches('/').rsplit('/').next().unwrap_or("").to_ascii_lowercase();
+    if slug.contains("1vs1") || slug.contains("1v1") {
+        "1v1 map pack"
+    } else if slug.contains("2vs2") || slug.contains("2v2") {
+        "2v2 map pack"
+    } else if slug.contains("4vs4") || slug.contains("4v4") {
+        "4v4 map pack"
+    } else if slug.contains("legacy") {
+        "legacy map pack"
+    } else if slug.contains("all-in-one") {
+        "all-in-one map pack"
+    } else {
+        "map pack"
+    }
+}
+
 pub fn pages(revision: &str, known: &[PackKind], players: u32) -> Vec<String> {
     use PackKind::*;
     let major: String = revision
