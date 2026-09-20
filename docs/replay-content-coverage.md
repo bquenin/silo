@@ -57,6 +57,42 @@ and V1.7x maps matched the other three custom-map replays. Similarly named
 Redzone and Infinity Island maps from Command Post had different checksums
 and were excluded.
 
+The [missing-content manifest](missing-replay-content.json) lists all **47
+distinct missing map requirements affecting 67 replays**, with their exact
+asset paths, MC values and engine versions. It also records 24 original
+Command Post release records, including available archive and script MD5s,
+to identify surviving copies. Those records are recovery leads, not claims
+that their downloads still work. The manifest contains no replay filenames,
+catalogue IDs, local paths or session credentials.
+
+Further checks covered every `.map` file in two public collections, including
+maps stored under unrelated names:
+
+| Collection | Map files checked | ZIP/RAR SHA-256 | Additional missing-map matches |
+| --- | ---: | --- | ---: |
+| [KanesWrath.com mega pack](https://kaneswrath.com/download/mega-mappack/) | 2,309 | `2b349bb410ffae12f7dda1aaeebc8ef79ddc7418f409472adcf23a6a36d38fd6` | 0 |
+| [ItzTeeJaay's 2020 collection](https://www.moddb.com/games/cc-kanes-wrath/addons/itzteejaays-kanes-wrath-map-collection) | 305 | `1d3885c1693cba4f752c727adbd128c495bd7f7d41107a6d1c7628cbee8f34a8` | 0 |
+
+The second collection's published MD5 also matched. These collections
+overlap, so the counts above are not a count of unique maps. The mega pack
+had already supplied the matching Tournament Highlands map noted above.
+Its `tiberium garden iii 2012 1.0` folder contains companion images and
+strings, but no `.map` file.
+
+Additional candidates also failed the replay checksum check:
+
+| Candidate | Available file checksum | Required checksum |
+| --- | --- | --- |
+| [Tiberium Gardens III](https://kaneswrath.com/kw-maps/tiberium-gardens-iii/) | `72572686` | `9C00930B` |
+| [Redzone Rampage 1v1 from Command Post](https://maps2.s3.amazonaws.com/redzone_rampage_1vs1/redzone_rampage_1vs1.zip) | `68FBA0E8` | `6F11AD75` |
+| [Redzone Rampage Tournament Edition from ModDB](https://www.moddb.com/addons/redzone-rampage-1vs1) | `1ED26F0C` | `6F11AD75` |
+| [Infinity Island](https://kaneswrath.com/kw-maps/infinity-island/) | `D089CE4D` | `F58A6252` |
+
+The missing Infinity Island replay records the display name
+`Infinity Isle [InProgress]`; a published final version is insufficient.
+The missing Redzone map records `Tournament redzone` as its display name,
+but still requires the `redzone_rampage_1v1` directory and checksum above.
+
 The changed catalogue entry points to `Last Replay.KWReplay`, which was
 overwritten after import. Its stock map exists, but the original replay must
 be recovered or the current file imported as a separate entry before that

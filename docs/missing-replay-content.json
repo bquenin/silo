@@ -1,0 +1,832 @@
+{
+  "schema_version": 1,
+  "checked_at": "2026-09-20T07:50:45.276488+00:00",
+  "description": "Missing content requirements only. The separately overwritten replay already has its stock map and is excluded.",
+  "validation": {
+    "community": "Require the exact full asset path and compiled MapMetaData MC, the matching script dependency, and verified archive hashes. MC is a compatibility code, not a cryptographic checksum.",
+    "custom": "Require the exact internal map path and whole compressed .map file checksum (SAGE rotate-left-one then wrapping-add each byte).",
+    "command_post_records": "Original registry records are recovery leads, not verified available downloads. Archive MD5 values are optional and must not replace metadata and script validation. Release labels alone are insufficient.",
+    "early_multiplayer": "No matching early multiplayer version record was found. Available R3/R4 duel packs have MC 6/7 but do not contain these assets."
+  },
+  "unique_missing_requirements": 47,
+  "affected_replays": 67,
+  "requirements": [
+    {
+      "family": "R12d",
+      "asset": "data/maps/official/atacama eight 1.02+__12d/atacama eight 1.02+__12d.map",
+      "mc_hex": "1A",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 1
+    },
+    {
+      "family": "R12d",
+      "asset": "data/maps/official/extraction plateau 1.02+__12d/extraction plateau 1.02+__12d.map",
+      "mc_hex": "1A",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 2
+    },
+    {
+      "family": "R12d",
+      "asset": "data/maps/official/golden hour 1.02+__12d/golden hour 1.02+__12d.map",
+      "mc_hex": "1A",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 2
+    },
+    {
+      "family": "R12d",
+      "asset": "data/maps/official/nod gardens 1.02+ edition/nod gardens 1.02+ edition.map",
+      "mc_hex": "1A",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 1
+    },
+    {
+      "family": "R12d",
+      "asset": "data/maps/official/sick city 1.02+__12d/sick city 1.02+__12d.map",
+      "mc_hex": "1A",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 1
+    },
+    {
+      "family": "R12d",
+      "asset": "data/maps/official/tiberian dunes 1.02+ edition/tiberian dunes 1.02+ edition.map",
+      "mc_hex": "1A",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 1
+    },
+    {
+      "family": "R12d",
+      "asset": "data/maps/official/tiberian forest 1.02+__12d/tiberian forest 1.02+__12d.map",
+      "mc_hex": "1A",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 1
+    },
+    {
+      "family": "R12d",
+      "asset": "data/maps/official/tiberian gardens viii 1.02+__12d/tiberian gardens viii 1.02+__12d.map",
+      "mc_hex": "1A",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 1
+    },
+    {
+      "family": "R12d",
+      "asset": "data/maps/official/tiberium rift 1.02+__12d/tiberium rift 1.02+__12d.map",
+      "mc_hex": "1A",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 1
+    },
+    {
+      "family": "R12d",
+      "asset": "data/maps/official/tournament arena 1.02+__12d/tournament arena 1.02+__12d.map",
+      "mc_hex": "1A",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 1
+    },
+    {
+      "family": "R12d",
+      "asset": "data/maps/official/tournament galaxy 1.02+__12d/tournament galaxy 1.02+__12d.map",
+      "mc_hex": "1A",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 4
+    },
+    {
+      "family": "R12d",
+      "asset": "data/maps/official/tournament odyssey 1.02+__12d/tournament odyssey 1.02+__12d.map",
+      "mc_hex": "1A",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 5
+    },
+    {
+      "family": "R12d",
+      "asset": "data/maps/official/tournament rift 1.02+__12d/tournament rift 1.02+__12d.map",
+      "mc_hex": "1A",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 1
+    },
+    {
+      "family": "R12d",
+      "asset": "data/maps/official/wasteland dam 1.02+ edition/wasteland dam 1.02+ edition.map",
+      "mc_hex": "1A",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 1
+    },
+    {
+      "family": "R13c",
+      "asset": "data/maps/official/tiberium rift 1.02+__13/tiberium rift 1.02+__13.map",
+      "mc_hex": "20",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 1
+    },
+    {
+      "family": "R13d",
+      "asset": "data/maps/official/alpine conflict 1.02+__13/alpine conflict 1.02+__13.map",
+      "mc_hex": "21",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 1
+    },
+    {
+      "family": "R13d",
+      "asset": "data/maps/official/tiberian forest 1.02+__13/tiberian forest 1.02+__13.map",
+      "mc_hex": "21",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 1
+    },
+    {
+      "family": "R13d",
+      "asset": "data/maps/official/tiberium rift 1.02+__13/tiberium rift 1.02+__13.map",
+      "mc_hex": "21",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 2
+    },
+    {
+      "family": "R13d",
+      "asset": "data/maps/official/tiki turmoil 1.02+__13/tiki turmoil 1.02+__13.map",
+      "mc_hex": "21",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 1
+    },
+    {
+      "family": "R13d",
+      "asset": "data/maps/official/troops of triumph 1.02+__13/troops of triumph 1.02+__13.map",
+      "mc_hex": "21",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 1
+    },
+    {
+      "family": "R20c",
+      "asset": "data/maps/official/redzone rampage 1.02+__20c/redzone rampage 1.02+__20c.map",
+      "mc_hex": "38",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 1
+    },
+    {
+      "family": "R20c",
+      "asset": "data/maps/official/tiki turmoil 1.02+__20c/tiki turmoil 1.02+__20c.map",
+      "mc_hex": "3C",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 1
+    },
+    {
+      "family": "R20c",
+      "asset": "data/maps/official/tournament decision 1.02+__20c/tournament decision 1.02+__20c.map",
+      "mc_hex": "3C",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 2
+    },
+    {
+      "family": "custom",
+      "asset": "data/maps/internal/!!!!!!infinity_island/!!!!!!infinity_island.map",
+      "mc_hex": "F58A6252",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 1
+    },
+    {
+      "family": "custom",
+      "asset": "data/maps/internal/island_paradise_2021/island_paradise_2021.map",
+      "mc_hex": "6BDD2F67",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 1
+    },
+    {
+      "family": "custom",
+      "asset": "data/maps/internal/redzone_rampage_1v1/redzone_rampage_1v1.map",
+      "mc_hex": "6F11AD75",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 4
+    },
+    {
+      "family": "custom",
+      "asset": "data/maps/internal/the_kracken/the_kracken.map",
+      "mc_hex": "FCC7DC4",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 1
+    },
+    {
+      "family": "custom",
+      "asset": "data/maps/internal/tiberium gardens iii/tiberium gardens iii.map",
+      "mc_hex": "9C00930B",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 1
+    },
+    {
+      "family": "custom",
+      "asset": "data/maps/internal/tiberium_garden_6_way_2012/tiberium_garden_6_way_2012.map",
+      "mc_hex": "D5C7C73C",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 1
+    },
+    {
+      "family": "early_multiplayer",
+      "asset": "data/maps/official/alpine valleys 1.02+ edition/alpine valleys 1.02+ edition.map",
+      "mc_hex": "6",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 1
+    },
+    {
+      "family": "early_multiplayer",
+      "asset": "data/maps/official/alpine valleys 1.02+ edition/alpine valleys 1.02+ edition.map",
+      "mc_hex": "7",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 1
+    },
+    {
+      "family": "early_multiplayer",
+      "asset": "data/maps/official/forgotten forest 1.02+ edition/forgotten forest 1.02+ edition.map",
+      "mc_hex": "6",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 1
+    },
+    {
+      "family": "early_multiplayer",
+      "asset": "data/maps/official/forgotten forest 1.02+ edition/forgotten forest 1.02+ edition.map",
+      "mc_hex": "7",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 2
+    },
+    {
+      "family": "early_multiplayer",
+      "asset": "data/maps/official/heaven and hell 1.02+ edition/heaven and hell 1.02+ edition.map",
+      "mc_hex": "6",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 2
+    },
+    {
+      "family": "early_multiplayer",
+      "asset": "data/maps/official/suburban arena 1.02+ edition/suburban arena 1.02+ edition.map",
+      "mc_hex": "6",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 1
+    },
+    {
+      "family": "early_multiplayer",
+      "asset": "data/maps/official/tournament shaft 1.02+ edition/tournament shaft 1.02+ edition.map",
+      "mc_hex": "7",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 2
+    },
+    {
+      "family": "early_multiplayer",
+      "asset": "data/maps/official/unsound investment 1.02+ edition/unsound investment 1.02+ edition.map",
+      "mc_hex": "6",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 1
+    },
+    {
+      "family": "early_multiplayer",
+      "asset": "data/maps/official/unsound investment 1.02+ edition/unsound investment 1.02+ edition.map",
+      "mc_hex": "7",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 3
+    },
+    {
+      "family": "early_multiplayer",
+      "asset": "data/maps/official/wrecktropolis 1.02+ edition/wrecktropolis 1.02+ edition.map",
+      "mc_hex": "6",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 2
+    },
+    {
+      "family": "early_multiplayer",
+      "asset": "data/maps/official/wrecktropolis 1.02+ edition/wrecktropolis 1.02+ edition.map",
+      "mc_hex": "7",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 1
+    },
+    {
+      "family": "historical_103",
+      "asset": "data/maps/official/hurricane lands 1.03/hurricane lands 1.03.map",
+      "mc_hex": "97",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 1
+    },
+    {
+      "family": "historical_103",
+      "asset": "data/maps/official/isthmus of insanity 1.03/isthmus of insanity 1.03.map",
+      "mc_hex": "8A",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 1
+    },
+    {
+      "family": "historical_103",
+      "asset": "data/maps/official/six shooter showdown 1.03/six shooter showdown 1.03.map",
+      "mc_hex": "8A",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 1
+    },
+    {
+      "family": "historical_103",
+      "asset": "data/maps/official/tournament airstrip 1.03/tournament airstrip 1.03.map",
+      "mc_hex": "86",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 1
+    },
+    {
+      "family": "historical_103",
+      "asset": "data/maps/official/tournament highlands 1.03/tournament highlands 1.03.map",
+      "mc_hex": "A3",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 1
+    },
+    {
+      "family": "historical_103",
+      "asset": "data/maps/official/tournament odyssey 1.03/tournament odyssey 1.03.map",
+      "mc_hex": "81",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 1
+    },
+    {
+      "family": "historical_103",
+      "asset": "data/maps/official/twisted arena 1.03/twisted arena 1.03.map",
+      "mc_hex": "83",
+      "engine": [
+        1,
+        2,
+        0,
+        0
+      ],
+      "replay_count": 1
+    }
+  ],
+  "command_post_metadata_source": "https://corefiles1.s3.eu-central-1.amazonaws.com/metadata.zip",
+  "command_post_release_records": [
+    {
+      "set": "102plusmaps",
+      "version_id": "61caf7309876a",
+      "label": "R12d",
+      "mc_hex": "1A",
+      "archive": "102plusmaps.big",
+      "archive_md5": null,
+      "installer": "KWCommunityPatch102PlusMaps_R12d.exe",
+      "extra_files": []
+    },
+    {
+      "set": "102plusmaps",
+      "version_id": "61caf730972df",
+      "label": "R13c",
+      "mc_hex": "20",
+      "archive": "102PlusMaps_13.big",
+      "archive_md5": "e48fd51e6dcd58dcca1678a82b481158",
+      "installer": "KWCommunityPatch102PlusMaps_R13.exe",
+      "extra_files": []
+    },
+    {
+      "set": "102plusmaps",
+      "version_id": "61caf73096f0c",
+      "label": "R13d",
+      "mc_hex": "21",
+      "archive": "102PlusMaps_13.big",
+      "archive_md5": "a39862e93c0eb57a6a1a1a6de06d0a80",
+      "installer": "KWCommunityPatch102PlusMaps_R13.exe",
+      "extra_files": []
+    },
+    {
+      "set": "102plusmaps",
+      "version_id": "647f530f3ffa4",
+      "label": "R20c",
+      "mc_hex": "3C",
+      "archive": "R201v1Maps.big",
+      "archive_md5": "fa8536a0645b43abe2089c42914ad798",
+      "installer": "R20c 1vs1 Final Map Pack.exe",
+      "extra_files": []
+    },
+    {
+      "set": "102plusmaps2",
+      "version_id": "61caf730a5c52",
+      "label": "R12d",
+      "mc_hex": "1A",
+      "archive": "102PlusMaps2.big",
+      "archive_md5": null,
+      "installer": "KWCommunityPatch102PlusMaps2_R12d.exe",
+      "extra_files": []
+    },
+    {
+      "set": "102plusmaps2",
+      "version_id": "61caf730a3daf",
+      "label": "R13c",
+      "mc_hex": "20",
+      "archive": "102PlusMaps2_13.big",
+      "archive_md5": "127a0a361da90feb3f0061a2aba39a36",
+      "installer": "KWCommunityPatch102PlusMaps_R13.exe",
+      "extra_files": []
+    },
+    {
+      "set": "102plusmaps2",
+      "version_id": "61caf730a348e",
+      "label": "R13d",
+      "mc_hex": "21",
+      "archive": "102PlusMaps2_13.big",
+      "archive_md5": "11a81bb89b858ad769c0096c56b1faec",
+      "installer": "KWCommunityPatch102PlusMaps_R13.exe",
+      "extra_files": []
+    },
+    {
+      "set": "102plusmaps2",
+      "version_id": "647f538344eb8",
+      "label": "R20c",
+      "mc_hex": "38",
+      "archive": "R202v2Maps.big",
+      "archive_md5": "222b028bf4dd5ab7bb82edcca27533b8",
+      "installer": "R20c 2vs2 Final Map Pack.exe",
+      "extra_files": []
+    },
+    {
+      "set": "102plusmaps2a",
+      "version_id": "61caf730adbaa",
+      "label": "R13c",
+      "mc_hex": "20",
+      "archive": "102PlusMaps2A_13.big",
+      "archive_md5": "829058e3f7a74303311e631a46bccd8b",
+      "installer": "KWCommunityPatch102PlusMapsA_R13.exe",
+      "extra_files": []
+    },
+    {
+      "set": "102plusmaps2a",
+      "version_id": "61caf730ad6b7",
+      "label": "R13d",
+      "mc_hex": "21",
+      "archive": "102PlusMaps2A_13.big",
+      "archive_md5": "bb98d0c8bdd82c909cb3cecc03c753de",
+      "installer": "KWCommunityPatch102PlusMapsA_R13.exe",
+      "extra_files": []
+    },
+    {
+      "set": "102plusmaps3",
+      "version_id": "61caf730b365f",
+      "label": "R12d",
+      "mc_hex": "1A",
+      "archive": "102PlusMaps3.big",
+      "archive_md5": null,
+      "installer": "KWCommunityPatch102PlusMaps3_R12d.exe",
+      "extra_files": []
+    },
+    {
+      "set": "102plusmaps3",
+      "version_id": "61caf730b17ae",
+      "label": "R13c",
+      "mc_hex": "20",
+      "archive": "102PlusMaps3_13.big",
+      "archive_md5": "e8d9cf400cb658f0f062b970f5b2da2e",
+      "installer": "KWCommunityPatch102PlusMaps_R13.exe",
+      "extra_files": []
+    },
+    {
+      "set": "102plusmaps3",
+      "version_id": "61caf730b0ec7",
+      "label": "R13d",
+      "mc_hex": "21",
+      "archive": "102PlusMaps3_13.big",
+      "archive_md5": "61cdc9b00b62f37d8a20608a21c8930f",
+      "installer": "KWCommunityPatch102PlusMaps_R13.exe",
+      "extra_files": []
+    },
+    {
+      "set": "102plusmaps3a",
+      "version_id": "61caf730ba984",
+      "label": "R13c",
+      "mc_hex": "20",
+      "archive": "102PlusMaps3A_13.big",
+      "archive_md5": "6cf81bf093f96285c2707258cc8e0b7c",
+      "installer": "KWCommunityPatch102PlusMapsA_R13.exe",
+      "extra_files": []
+    },
+    {
+      "set": "102plusmaps3a",
+      "version_id": "61caf730ba55a",
+      "label": "R13d",
+      "mc_hex": "20",
+      "archive": "102PlusMaps3A_13.big",
+      "archive_md5": "b4f4ec3ddfabff83ca28e04512cee9c4",
+      "installer": "KWCommunityPatch102PlusMapsA_R13.exe",
+      "extra_files": []
+    },
+    {
+      "set": "102plusmapsa",
+      "version_id": "61caf730a0106",
+      "label": "R13c",
+      "mc_hex": "20",
+      "archive": "102PlusMapsA_13.big",
+      "archive_md5": "1bdc6c33cc890e68600f8103f2db6c84",
+      "installer": "KWCommunityPatch102PlusMapsA_R13.exe",
+      "extra_files": []
+    },
+    {
+      "set": "102plusmapsa",
+      "version_id": "61caf7309fc82",
+      "label": "R13d",
+      "mc_hex": "21",
+      "archive": "102PlusMapsA_13.big",
+      "archive_md5": "abaaa7820ad5dec0df8e2b7c2f0f2d62",
+      "installer": "KWCommunityPatch102PlusMapsA_R13.exe",
+      "extra_files": []
+    },
+    {
+      "set": "103maps",
+      "version_id": "621b7d75ab4bc",
+      "label": "236",
+      "mc_hex": "A3",
+      "archive": "103maps.big",
+      "archive_md5": "fe13ee7594d752e59a99ddba9003caa8",
+      "installer": "KWCommunityPatch103Maps.exe",
+      "extra_files": [
+        {
+          "name": "102Scripts.big",
+          "md5": "e6e73159fb4ed402efa881fa43c96349"
+        }
+      ]
+    },
+    {
+      "set": "103maps",
+      "version_id": "61caf730c8c75",
+      "label": "TEST 117",
+      "mc_hex": "81",
+      "archive": "103maps.big",
+      "archive_md5": "690043f4b7e62453b934e925abcb284f",
+      "installer": "KWCommunityPatch103Maps.exe",
+      "extra_files": []
+    },
+    {
+      "set": "103maps",
+      "version_id": "61caf730c7d7f",
+      "label": "TEST 119",
+      "mc_hex": "83",
+      "archive": "103maps.big",
+      "archive_md5": "7117e8df67aae7a68faf386ac1d51952",
+      "installer": "KWCommunityPatch103Maps.exe",
+      "extra_files": []
+    },
+    {
+      "set": "103maps",
+      "version_id": "61caf730c6baf",
+      "label": "TEST 122",
+      "mc_hex": "86",
+      "archive": "103maps.big",
+      "archive_md5": "a9d44019bd395477c1b3b89b25ccc52f",
+      "installer": "KWCommunityPatch103Maps.exe",
+      "extra_files": []
+    },
+    {
+      "set": "103maps",
+      "version_id": "61caf730bfe82",
+      "label": "TEST 182",
+      "mc_hex": "97",
+      "archive": "103maps.big",
+      "archive_md5": "5302eb80b2da913b8fe8398da89666df",
+      "installer": "KWCommunityPatch103Maps.exe",
+      "extra_files": [
+        {
+          "name": "102Scripts.big",
+          "md5": "4402c951f313a6f8100a23ddf89f4f8a"
+        }
+      ]
+    },
+    {
+      "set": "103maps2",
+      "version_id": "61caf730d97d3",
+      "label": "TEST 128",
+      "mc_hex": "8A",
+      "archive": "103maps2.big",
+      "archive_md5": "323f50558f8f9cef9e6b30d2efbab7e8",
+      "installer": "KWCommunityPatch103Maps2.exe",
+      "extra_files": []
+    },
+    {
+      "set": "103maps3",
+      "version_id": "61caf730efddb",
+      "label": "TEST 128",
+      "mc_hex": "8A",
+      "archive": "103maps3.big",
+      "archive_md5": "ceea9266764b65101ea3a07dec6b9f1c",
+      "installer": "KWCommunityPatch103Maps3.exe",
+      "extra_files": []
+    }
+  ]
+}
