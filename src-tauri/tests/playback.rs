@@ -247,12 +247,12 @@ fn launch_plan_preserves_paths_and_inherits_the_environment() {
         .get_args()
         .map(|a| a.to_string_lossy().into_owned())
         .collect();
-    assert_eq!(args.len(), 5);
+    assert_eq!(args.len(), 4);
     assert_eq!(args[0], "-replayGame");
     assert!(args[1].ends_with("Replay #1.KWReplay"));
-    assert_eq!(args[2..4], ["-win", "-config"]);
+    assert_eq!(args[2], "-config");
     assert_eq!(
-        Path::new(&args[4]),
+        Path::new(&args[3]),
         dunce::canonicalize(f.sku()).unwrap().as_path()
     );
     assert_eq!(

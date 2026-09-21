@@ -410,7 +410,7 @@ fn disabled_local_pack_uses_a_private_config_and_preserves_user_selection() {
     let user_sku = fs::read(f.game.join("CNC3EP1_english_1.2.SkuDef")).unwrap();
     let user_config = fs::read(f.game.join("Patch103/config.txt")).unwrap();
     let prepared = f.prepare().unwrap();
-    let config_path = PathBuf::from(&prepared.plan.args[4]);
+    let config_path = PathBuf::from(&prepared.plan.args[3]);
     let text = fs::read_to_string(&config_path).unwrap();
     assert!(text.contains("R24g1v1Maps.big") && text.contains("R24gScripts.big"));
     assert!(!text.contains("R24j") && !config_path.starts_with(&f.game));
@@ -587,7 +587,7 @@ fn preserved_cli_session_is_recovered_without_removing_unowned_content() {
     let f = Fixture::new();
     f.local("24g", true);
     let plan = f.prepare().unwrap().keep();
-    let path = PathBuf::from(&plan.args[4]);
+    let path = PathBuf::from(&plan.args[3]);
     assert!(path.is_file());
     fs::create_dir_all(f.cache.join("sessions/replay-user-folder")).unwrap();
     fs::write(f.cache.join("sessions/replay-user-folder/keep.txt"), "user").unwrap();

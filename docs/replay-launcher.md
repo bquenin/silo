@@ -140,7 +140,7 @@ instead of guessing.
 The game is started directly, in its installation directory:
 
 ```text
-cnc3ep1.dat -replayGame <absolute replay path> -win -config <temporary SkuDef>
+cnc3ep1.dat -replayGame <absolute replay path> -config <temporary SkuDef>
 ```
 
 The replay SHA-256 is checked against the catalogue before preparation.

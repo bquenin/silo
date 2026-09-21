@@ -305,7 +305,6 @@ pub fn check(target: &ReplayTarget, sku: Option<&Path>) -> Result<Report> {
         args: vec![
             "-replayGame".into(),
             replay.to_string_lossy().into_owned(),
-            "-win".into(),
             "-config".into(),
             game.sku.to_string_lossy().into_owned(),
         ],

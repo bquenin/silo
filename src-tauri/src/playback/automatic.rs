@@ -285,7 +285,6 @@ pub fn prepare(
             args: vec![
                 "-replayGame".into(),
                 replay.to_string_lossy().into_owned(),
-                "-win".into(),
                 "-config".into(),
                 sku.to_string_lossy().into_owned(),
             ],
