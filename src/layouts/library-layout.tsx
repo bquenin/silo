@@ -2,11 +2,15 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { observeElementRect, useVirtualizer } from '@tanstack/react-virtual';
 import {
   ArrowDown, ArrowUp, Check, ChevronDown, FolderInput, Loader2, Play, Search, X,
+  FileCheck2,
 } from 'lucide-react';
 import { FactionMonogram, TeamNames } from '../components/player-names';
 import { PlaybackDialog } from '../components/playback-dialog';
 import { ReplayDetail } from '../components/replay-detail';
-import type { IngestReport } from '../lib/backend';
+import {
+  associateReplayFiles, replayFileAssociation,
+  type IngestReport, type ReplayFileAssociation,
+} from '../lib/backend';
 import { formatDate, formatRelative } from '../lib/mock-data';
 import { displayMapName, formatDuration, modeOf } from '../lib/replays';
 import { useReplays } from '../lib/use-replays';
@@ -34,12 +38,15 @@ const SORT_COLUMNS: { key: SortKey; label: string; right?: boolean }[] = [
 ];
 
 export function LibraryLayout() {
-  const { replays, total, loading, error, importFolder, refresh, live } = useReplays();
+  const { replays, total, loading, error, openedReport, importFolder, refresh, live } = useReplays();
   const [filter, setFilter] = useState<FilterState>({ search: '', mode: null, factions: new Set() });
   const [sort, setSort] = useState<SortState>({ key: 'recorded', dir: 'desc' });
   const [report, setReport] = useState<IngestReport | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [playbackReplay, setPlaybackReplay] = useState<Replay | null>(null);
+  const [association, setAssociation] = useState<ReplayFileAssociation | null>(null);
+  const [associationBusy, setAssociationBusy] = useState(false);
+  const [associationError, setAssociationError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const filtered = useMemo(
@@ -59,6 +66,17 @@ export function LibraryLayout() {
     return () => document.removeEventListener('keydown', onKey);
   }, [playbackReplay]);
 
+  useEffect(() => {
+    if (!live) return;
+    void replayFileAssociation()
+      .then(setAssociation)
+      .catch((reason) => setAssociationError(`Could not check the file association: ${String(reason)}`));
+  }, [live]);
+
+  useEffect(() => {
+    if (openedReport) setReport(openedReport);
+  }, [openedReport]);
+
   function clearFilters() {
     setFilter({ search: '', mode: null, factions: new Set() });
   }
@@ -74,6 +92,18 @@ export function LibraryLayout() {
     setReport(null);
     const result = await importFolder();
     if (result) setReport(result);
+  }
+
+  async function handleAssociation() {
+    setAssociationBusy(true);
+    setAssociationError(null);
+    try {
+      setAssociation(await associateReplayFiles());
+    } catch (reason) {
+      setAssociationError(`Could not associate .kwreplay files: ${String(reason)}`);
+    } finally {
+      setAssociationBusy(false);
+    }
   }
 
   const virtualizer = useVirtualizer({
@@ -144,6 +174,20 @@ export function LibraryLayout() {
           <span className="text-[11px] px-2 py-0.5 rounded-full text-fg-muted border border-bg-border">Demo data</span>
         )}
 
+        {live && association?.supported !== false && (
+          <button
+            onClick={() => void handleAssociation()}
+            disabled={associationBusy || association?.associated}
+            title={association?.associated
+              ? '.kwreplay files open with this copy of Tacitus'
+              : 'Open .kwreplay files with this copy of Tacitus'}
+            className="flex items-center gap-1.5 border border-bg-border text-fg-muted rounded px-3 py-1.5 text-sm hover:text-fg hover:bg-bg-surface disabled:opacity-60"
+          >
+            {associationBusy ? <Loader2 size={14} className="animate-spin" /> : <FileCheck2 size={14} />}
+            {association?.associated ? '.kwreplay associated' : 'Associate .kwreplay'}
+          </button>
+        )}
+
         <button
           onClick={handleImport}
           disabled={!live || loading}
@@ -161,6 +205,14 @@ export function LibraryLayout() {
           <p>{error}</p>
           <button onClick={() => void refresh()} disabled={loading} className="mt-2 underline disabled:opacity-40">
             Retry loading catalogue
+          </button>
+        </div>
+      )}
+      {associationError && (
+        <div role="alert" className="shrink-0 mx-4 mt-3 rounded border border-red-400/30 bg-red-400/5 p-3 text-sm text-red-300 flex items-start gap-3">
+          <p className="flex-1">{associationError}</p>
+          <button onClick={() => setAssociationError(null)} aria-label="Dismiss" className="text-fg-muted hover:text-fg p-0.5">
+            <X size={14} />
           </button>
         </div>
       )}

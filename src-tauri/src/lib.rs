@@ -1,12 +1,16 @@
 //! Tacitus library — shared between the Tauri app and the CLI binary.
 
 pub mod db;
+pub mod file_association;
 pub mod ingest;
 pub mod parser;
 pub mod playback;
 
-use std::path::PathBuf;
+use std::collections::VecDeque;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
+
+use tauri::{Emitter, Manager};
 
 use crate::db::{Db, ReplayCursor, ReplayRow};
 use crate::ingest::IngestReport;
@@ -15,6 +19,16 @@ use crate::parser::Replay;
 pub struct AppState {
     pub db: Arc<Mutex<Db>>,
     pub playback_jobs: Arc<Mutex<PlaybackJobs>>,
+    pub pending_replays: Arc<Mutex<VecDeque<String>>>,
+}
+
+fn replay_argument(args: impl IntoIterator<Item = String>) -> Option<String> {
+    args.into_iter().find(|argument| {
+        Path::new(argument)
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("kwreplay"))
+    })
 }
 
 #[derive(Default)]
@@ -218,16 +232,59 @@ fn cancel_playback(state: tauri::State<'_, AppState>, request_id: String) -> Res
         .cancel(request_id))
 }
 
+#[tauri::command]
+fn replay_file_association() -> Result<file_association::AssociationStatus, String> {
+    let executable = std::env::current_exe().map_err(|error| error.to_string())?;
+    file_association::status(&executable).map_err(|error| format!("{error:#}"))
+}
+
+#[tauri::command]
+fn associate_replay_files() -> Result<file_association::AssociationStatus, String> {
+    let executable = std::env::current_exe().map_err(|error| error.to_string())?;
+    file_association::associate(&executable).map_err(|error| format!("{error:#}"))
+}
+
+#[tauri::command]
+fn take_pending_replay(state: tauri::State<'_, AppState>) -> Result<Option<String>, String> {
+    Ok(state
+        .pending_replays
+        .lock()
+        .map_err(|error| error.to_string())?
+        .pop_front())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let catalogue = ingest::default_catalogue_path();
     let db = Db::open(&catalogue).expect("failed to open catalogue");
+    let pending_replays = Arc::new(Mutex::new(VecDeque::new()));
+    if let Some(path) = replay_argument(std::env::args().skip(1)) {
+        pending_replays
+            .lock()
+            .expect("pending replay lock poisoned")
+            .push_back(path);
+    }
     let state = AppState {
         db: Arc::new(Mutex::new(db)),
         playback_jobs: Arc::new(Mutex::new(PlaybackJobs::default())),
+        pending_replays,
     };
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            let Some(path) = replay_argument(args) else {
+                return;
+            };
+            if let Ok(mut pending) = app.state::<AppState>().pending_replays.lock() {
+                pending.push_back(path);
+            }
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.unminimize();
+                let _ = window.set_focus();
+            }
+            let _ = app.emit("replay-open-requested", ());
+        }))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(state)
@@ -242,6 +299,9 @@ pub fn run() {
             check_playback,
             launch_replay,
             cancel_playback,
+            replay_file_association,
+            associate_replay_files,
+            take_pending_replay,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -269,5 +329,17 @@ mod playback_job_tests {
             jobs: jobs.clone(),
         });
         assert!(jobs.lock().unwrap().start("second").is_ok());
+    }
+
+    #[test]
+    fn replay_argument_is_case_insensitive_and_ignores_other_arguments() {
+        assert_eq!(
+            replay_argument(["--flag".into(), r"C:\Replays\match.KWReplay".into()]),
+            Some(r"C:\Replays\match.KWReplay".into()),
+        );
+        assert_eq!(
+            replay_argument(["tacitus.exe".into(), "notes.txt".into()]),
+            None
+        );
     }
 }

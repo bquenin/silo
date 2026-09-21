@@ -56,6 +56,23 @@ export async function ingestPath(path: string): Promise<IngestReport> {
   return invoke('ingest', { path });
 }
 
+export interface ReplayFileAssociation {
+  supported: boolean;
+  associated: boolean;
+}
+
+export async function replayFileAssociation(): Promise<ReplayFileAssociation> {
+  return invoke('replay_file_association');
+}
+
+export async function associateReplayFiles(): Promise<ReplayFileAssociation> {
+  return invoke('associate_replay_files');
+}
+
+export async function takePendingReplay(): Promise<string | null> {
+  return invoke('take_pending_replay');
+}
+
 export interface PlaybackSettings {
   game_path: string | null;
 }

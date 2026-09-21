@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { listen } from '@tauri-apps/api/event';
 import { open } from '@tauri-apps/plugin-dialog';
 
-import { type IngestReport, ingestPath, isTauri } from './backend';
+import { type IngestReport, ingestPath, isTauri, takePendingReplay } from './backend';
 import { loadCatalogue } from './catalogue';
 import { REPLAYS as MOCK_REPLAYS } from './mock-data';
 import type { Replay } from './types';
@@ -11,6 +12,7 @@ export interface ReplaysHookValue {
   total: number;
   loading: boolean;
   error: string | null;
+  openedReport: IngestReport | null;
   importFolder: () => Promise<IngestReport | null>;
   refresh: () => Promise<void>;
   live: boolean;
@@ -21,7 +23,9 @@ export function useReplays(): ReplaysHookValue {
   const [replays, setReplays] = useState<Replay[]>(live ? [] : MOCK_REPLAYS);
   const [loading, setLoading] = useState(live);
   const [error, setError] = useState<string | null>(null);
+  const [openedReport, setOpenedReport] = useState<IngestReport | null>(null);
   const request = useRef(0);
+  const pendingTask = useRef<Promise<void>>(Promise.resolve());
 
   const refresh = useCallback(async () => {
     if (!live) return;
@@ -43,6 +47,49 @@ export function useReplays(): ReplaysHookValue {
     return () => { request.current += 1; };
   }, [refresh]);
 
+  const processPendingReplays = useCallback(() => {
+    if (!live) return;
+    pendingTask.current = pendingTask.current.then(async () => {
+      let combined: IngestReport | null = null;
+      try {
+        for (;;) {
+          const path = await takePendingReplay();
+          if (!path) break;
+          setLoading(true);
+          const report = await ingestPath(path);
+          combined ??= { scanned: 0, inserted: 0, duplicates: 0, errors: [] };
+          combined.scanned += report.scanned;
+          combined.inserted += report.inserted;
+          combined.duplicates += report.duplicates;
+          combined.errors.push(...report.errors);
+        }
+        if (combined) {
+          await refresh();
+          setOpenedReport(combined);
+        }
+      } catch (reason) {
+        setError(`Could not open replay: ${String(reason)}`);
+      } finally {
+        setLoading(false);
+      }
+    });
+  }, [live, refresh]);
+
+  useEffect(() => {
+    if (!live) return;
+    let disposed = false;
+    let unlisten: (() => void) | undefined;
+    void listen('replay-open-requested', processPendingReplays).then((stop) => {
+      if (disposed) {
+        stop();
+      } else {
+        unlisten = stop;
+        processPendingReplays();
+      }
+    });
+    return () => { disposed = true; unlisten?.(); };
+  }, [live, processPendingReplays]);
+
   const importFolder = useCallback(async (): Promise<IngestReport | null> => {
     if (!live) return null;
     setLoading(true);
@@ -61,5 +108,5 @@ export function useReplays(): ReplaysHookValue {
     }
   }, [live, refresh]);
 
-  return { replays, total: replays.length, loading, error, importFolder, refresh, live };
+  return { replays, total: replays.length, loading, error, openedReport, importFolder, refresh, live };
 }

@@ -36,6 +36,8 @@ signing and clean Windows 10/11 release testing remain before a public release.
   executed.
 - Mount replay content through a temporary configuration without changing the
   user's installed packs or selected game configuration.
+- Optionally associate `.kwreplay` files with the current Tacitus executable,
+  so a replay can be imported by double-clicking it in Explorer.
 - Import, list, search, parse, check, prepare, and launch replays from
   `tacitus-cli`, with structured JSON output where applicable.
 
@@ -71,6 +73,11 @@ runtime updates, and release validation.
 4. Select a replay and choose **Play**. Tacitus checks the game and required
    content, downloads a supported missing pack when available, and starts the
    replay.
+
+Choose **Associate .kwreplay** to opt into opening replay files with Tacitus.
+The association applies only to the current Windows user and points to the
+current executable. If you move or rename `tacitus.exe`, start it from the new
+location and choose the button again to update the association.
 
 If automatic game detection fails, the playback dialog asks for the Kane's
 Wrath installation folder containing `Core` and `RetailExe`. The selected path
