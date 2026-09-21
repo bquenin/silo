@@ -31,5 +31,6 @@ scratch/
 __pycache__/
 *.py[cod]
 *.egg-info/
+/tools/cp-client/build/
 .venv/
 venv/

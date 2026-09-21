@@ -51,3 +51,11 @@ it('associates replay files only after the user chooses the toolbar action', asy
   ).toBe(true));
   expect(associateReplayFiles).toHaveBeenCalledOnce();
 });
+
+it('explains how to change an existing Windows default instead of claiming success', async () => {
+  vi.mocked(associateReplayFiles).mockResolvedValueOnce({ supported: true, associated: false });
+  render(<LibraryLayout />);
+  fireEvent.click(screen.getByRole('button', { name: 'Associate .kwreplay' }));
+  await waitFor(() => expect(screen.getByRole('alert').textContent).toContain('Windows has another default app'));
+  expect(screen.queryByRole('button', { name: '.kwreplay associated' })).toBeNull();
+});

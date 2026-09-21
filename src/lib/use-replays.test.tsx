@@ -51,3 +51,14 @@ it('imports a replay received from Explorer and reports the result', async () =>
   expect(ingestPath).toHaveBeenCalledWith('C:/replays/match.kwreplay');
   expect(loadCatalogue).toHaveBeenCalledTimes(2);
 });
+
+it('keeps the catalogue loading while the empty Explorer queue is checked', async () => {
+  let finish!: (rows: []) => void;
+  vi.mocked(loadCatalogue).mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
+  const { result } = renderHook(useReplays);
+  await act(async () => { await Promise.resolve(); });
+  expect(takePendingReplay).toHaveBeenCalled();
+  expect(result.current.loading).toBe(true);
+  await act(async () => { finish([]); });
+  expect(result.current.loading).toBe(false);
+});

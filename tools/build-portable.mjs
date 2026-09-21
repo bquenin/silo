@@ -45,7 +45,7 @@ async function main() {
   await new Promise((done, reject) => {
     const child = spawn(process.execPath, [
       join(root, 'node_modules/@tauri-apps/cli/tauri.js'),
-      'build', '--no-bundle', '--target', runtime.target, '--features', 'portable', '--', '--bin', 'tacitus',
+      'build', '--no-bundle', '--target', runtime.target, '--features', 'portable', '--', '--locked', '--bin', 'tacitus',
     ], {
       cwd: root, stdio: 'inherit', windowsHide: true,
       env: {

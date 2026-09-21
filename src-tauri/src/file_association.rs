@@ -28,7 +28,7 @@ mod platform {
     use anyhow::Context;
     use std::path::Path;
     use windows_sys::Win32::UI::Shell::{SHChangeNotify, SHCNE_ASSOCCHANGED, SHCNF_IDLIST};
-    use winreg::enums::{HKEY_CURRENT_USER, KEY_READ, KEY_WRITE};
+    use winreg::enums::{HKEY_CURRENT_USER, KEY_READ};
     use winreg::RegKey;
 
     const CLASSES: &str = r"Software\Classes";
@@ -54,7 +54,14 @@ mod platform {
             .open_subkey_with_flags(format!(r"{PROG_ID}\shell\open\command"), KEY_READ)
             .ok()
             .and_then(|key| key.get_value("").ok());
-        let associated = extension.as_deref() == Some(PROG_ID)
+        let user_choice: Option<String> = hkcu
+            .open_subkey_with_flags(
+                r"Software\Microsoft\Windows\CurrentVersion\Explorer\FileExts\.kwreplay\UserChoice",
+                KEY_READ,
+            )
+            .ok()
+            .and_then(|key| key.get_value("ProgId").ok());
+        let associated = user_choice.as_deref().or(extension.as_deref()) == Some(PROG_ID)
             && command
                 .as_deref()
                 .is_some_and(|value| value.eq_ignore_ascii_case(&open_command(executable)));
@@ -67,23 +74,26 @@ mod platform {
 
     pub fn associate(executable: &Path) -> anyhow::Result<AssociationStatus> {
         let hkcu = RegKey::predef(HKEY_CURRENT_USER);
-        let classes = hkcu
-            .open_subkey_with_flags(CLASSES, KEY_READ | KEY_WRITE)
+        let (classes, _) = hkcu
+            .create_subkey(CLASSES)
             .context("Could not open the Windows file-association registry")?;
-
-        let (extension, _) = classes
-            .create_subkey(EXTENSION)
-            .context("Could not register the .kwreplay extension")?;
-        extension.set_value("", &PROG_ID)?;
 
         let (kind, _) = classes.create_subkey(PROG_ID)?;
         kind.set_value("", &"Kane's Wrath Replay")?;
+        kind.set_value("FriendlyTypeName", &"Kane's Wrath Replay")?;
 
         let (icon, _) = classes.create_subkey(format!(r"{PROG_ID}\DefaultIcon"))?;
         icon.set_value("", &format!("\"{}\",0", executable.display()))?;
 
         let (command, _) = classes.create_subkey(format!(r"{PROG_ID}\shell\open\command"))?;
         command.set_value("", &open_command(executable))?;
+
+        let (extension, _) = classes
+            .create_subkey(EXTENSION)
+            .context("Could not register the .kwreplay extension")?;
+        extension.set_value("", &PROG_ID)?;
+        let (handlers, _) = extension.create_subkey("OpenWithProgids")?;
+        handlers.set_value(PROG_ID, &"")?;
 
         // Tell Explorer that extension and icon metadata changed.
         unsafe {

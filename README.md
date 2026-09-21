@@ -78,6 +78,12 @@ Choose **Associate .kwreplay** to opt into opening replay files with Tacitus.
 The association applies only to the current Windows user and points to the
 current executable. If you move or rename `tacitus.exe`, start it from the new
 location and choose the button again to update the association.
+If Windows already has another default app, right-click a replay, choose
+**Open with**, select Tacitus and choose **Always**.
+
+Updates are manual: download a later release and replace the executable after
+closing Tacitus. Your catalogue and caches remain in their separate data folders.
+Browser security updates ship with new Tacitus builds.
 
 If automatic game detection fails, the playback dialog asks for the Kane's
 Wrath installation folder containing `Core` and `RetailExe`. The selected path

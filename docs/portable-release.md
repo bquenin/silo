@@ -69,7 +69,28 @@ in a separate folder, empty redirected application-data directories, and a
 renamed executable on the second launch. The bundled UI and private runtime
 were verified through WebView2 and process paths. First launch took about
 5.7 seconds and the cached launch about 0.5 seconds on the development machine.
-All 88 Rust tests passed, including the four runtime preparation regressions.
+The runtime preparation regression tests passed. Real-replay corpus tests only
+exercise a collection when `TACITUS_REPLAY_CORPUS` is set.
 
 This build command does not code-sign the executable; signing and clean Windows
 10/11 testing remain release steps.
+
+## Release workflow
+
+The Windows validation workflow runs frontend, Rust and Command Post client
+tests plus npm and Rust dependency audits. Main-branch and manual runs also
+upload the portable candidate and checksum as workflow artifacts. Builds use
+the committed npm and Cargo lockfiles. Artifacts are unsigned candidates.
+
+Use [the 0.1.0 release checklist](release-0.1.0.md) before publishing. Sign the
+final EXE using the publisher's certificate, then regenerate the checksum:
+
+```powershell
+$digest = (Get-FileHash -LiteralPath release/tacitus.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+Set-Content -LiteralPath release/tacitus.exe.sha256 -Value "$digest  tacitus.exe" -Encoding ascii
+Get-AuthenticodeSignature -LiteralPath release/tacitus.exe
+```
+
+Update the draft assets after signing. A draft or workflow artifact does not
+make a private repository publicly accessible. No automatic updater is included;
+users replace the EXE manually. Browser runtime updates require a new build.

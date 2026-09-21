@@ -98,7 +98,11 @@ export function LibraryLayout() {
     setAssociationBusy(true);
     setAssociationError(null);
     try {
-      setAssociation(await associateReplayFiles());
+      const result = await associateReplayFiles();
+      setAssociation(result);
+      if (!result.associated) {
+        setAssociationError('Tacitus is registered, but Windows has another default app. Right-click a .kwreplay file, choose Open with, select Tacitus and choose Always.');
+      }
     } catch (reason) {
       setAssociationError(`Could not associate .kwreplay files: ${String(reason)}`);
     } finally {

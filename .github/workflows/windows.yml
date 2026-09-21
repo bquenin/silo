@@ -1,0 +1,51 @@
+name: Windows validation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Set up Rust
+        run: rustup update stable --no-self-update
+      - run: npm ci
+      - run: npm audit --audit-level=high
+      - run: npm test
+      - run: npm run build
+      - run: cargo test --locked --manifest-path src-tauri/Cargo.toml --all-targets
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install ./tools/cp-client
+      - run: python -m unittest discover -s tools/cp-client/tests -v
+      - name: Audit Rust dependencies
+        run: |
+          cargo install cargo-audit --version 0.22.2 --locked
+          cargo audit --file src-tauri/Cargo.lock
+      - name: Build portable candidate
+        if: github.event_name != 'pull_request'
+        run: npm run build:portable
+      - name: Upload portable candidate
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: tacitus-windows-x64-${{ github.sha }}
+          path: |
+            release/tacitus.exe
+            release/tacitus.exe.sha256
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 14

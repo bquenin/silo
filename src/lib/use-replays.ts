@@ -51,10 +51,12 @@ export function useReplays(): ReplaysHookValue {
     if (!live) return;
     pendingTask.current = pendingTask.current.then(async () => {
       let combined: IngestReport | null = null;
+      let importing = false;
       try {
         for (;;) {
           const path = await takePendingReplay();
           if (!path) break;
+          importing = true;
           setLoading(true);
           const report = await ingestPath(path);
           combined ??= { scanned: 0, inserted: 0, duplicates: 0, errors: [] };
@@ -70,7 +72,7 @@ export function useReplays(): ReplaysHookValue {
       } catch (reason) {
         setError(`Could not open replay: ${String(reason)}`);
       } finally {
-        setLoading(false);
+        if (importing) setLoading(false);
       }
     });
   }, [live, refresh]);
@@ -86,7 +88,7 @@ export function useReplays(): ReplaysHookValue {
         unlisten = stop;
         processPendingReplays();
       }
-    });
+    }).catch((reason) => setError(`Could not listen for replay files: ${String(reason)}`));
     return () => { disposed = true; unlisten?.(); };
   }, [live, processPendingReplays]);
 
