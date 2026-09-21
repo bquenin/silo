@@ -4,6 +4,8 @@ Tacitus is a replay library and playback manager for **Command & Conquer 3:
 Kane's Wrath**. It catalogues `.kwreplay` files, extracts match metadata, and
 prepares the exact game content needed to watch a replay in the live engine.
 
+![Tacitus replay library showing searchable matches and faction monograms](docs/images/tacitus-library.png)
+
 ## Current status
 
 Tacitus 0.1.0 is a functional Windows x64 release candidate. The desktop app
