@@ -45,12 +45,12 @@ async function main() {
   await new Promise((done, reject) => {
     const child = spawn(process.execPath, [
       join(root, 'node_modules/@tauri-apps/cli/tauri.js'),
-      'build', '--no-bundle', '--target', runtime.target, '--features', 'portable', '--', '--locked', '--bin', 'tacitus',
+      'build', '--no-bundle', '--target', runtime.target, '--features', 'portable', '--', '--locked', '--bin', 'silo',
     ], {
       cwd: root, stdio: 'inherit', windowsHide: true,
       env: {
         ...process.env,
-        TACITUS_WEBVIEW2_CAB: cab,
+        SILO_WEBVIEW2_CAB: cab,
         CARGO_TARGET_DIR: targetDir,
         RUSTFLAGS: `${process.env.RUSTFLAGS ?? ''} -C target-feature=+crt-static`.trim(),
       },
@@ -58,12 +58,12 @@ async function main() {
     child.once('error', reject);
     child.once('exit', code => code === 0 ? done() : reject(new Error(`Portable build exited with code ${code}`)));
   });
-  const output = join(root, 'release/tacitus.exe');
+  const output = join(root, 'release/silo.exe');
   await mkdir(dirname(output), { recursive: true });
-  await copyFile(join(targetDir, runtime.target, 'release/tacitus.exe'), output);
-  await writeFile(`${output}.sha256`, `${await hashFile(output)}  tacitus.exe\n`);
+  await copyFile(join(targetDir, runtime.target, 'release/silo.exe'), output);
+  await writeFile(`${output}.sha256`, `${await hashFile(output)}  silo.exe\n`);
   console.log(`\nPortable release: ${output} (${((await stat(output)).size / 1024 ** 2).toFixed(1)} MiB)`);
-  console.log('Distribute tacitus.exe alone. The .sha256 file is optional verification metadata.');
+  console.log('Distribute silo.exe alone. The .sha256 file is optional verification metadata.');
 }
 
 main().catch(error => { console.error(error.message); process.exitCode = 1; });

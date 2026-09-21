@@ -9,7 +9,7 @@ use rusqlite::{params, Connection, OpenFlags, OptionalExtension};
 
 use crate::parser::{Faction, Player, Replay};
 
-/// Open a Tacitus catalogue at `path`. Creates the file + schema if missing.
+/// Open a Silo catalogue at `path`. Creates the file + schema if missing.
 pub struct Db {
     conn: Connection,
 }
@@ -314,7 +314,7 @@ pub struct ReplayRow {
     pub imported_at: i64,
     /// Total simulation ticks (max time_code from chunk walk). `None` for
     /// replays parsed before the duration column was added, until they're
-    /// backfilled via `tacitus backfill-duration`. Convert to seconds via
+    /// backfilled via `silo backfill-duration`. Convert to seconds via
     /// `frames / TICKS_PER_SECOND` (15 ticks per second).
     pub duration_frames: Option<i64>,
     pub players: Vec<PlayerSummary>,

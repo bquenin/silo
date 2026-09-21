@@ -4,7 +4,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use tacitus_lib::playback::{self, ReplayTarget, Report, Status};
+use silo_lib::playback::{self, ReplayTarget, Report, Status};
 
 struct Fixture {
     root: PathBuf,
@@ -15,7 +15,7 @@ impl Fixture {
     fn new() -> Self {
         static SEQUENCE: AtomicU64 = AtomicU64::new(0);
         let root = std::env::temp_dir().join(format!(
-            "tacitus-playback-{}-{}-{}",
+            "silo-playback-{}-{}-{}",
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -81,7 +81,7 @@ impl Drop for Fixture {
             .file_name()
             .unwrap()
             .to_string_lossy()
-            .starts_with("tacitus-playback-"));
+            .starts_with("silo-playback-"));
         let _ = fs::remove_dir_all(&self.root);
     }
 }

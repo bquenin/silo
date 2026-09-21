@@ -55,7 +55,7 @@ fn big_with_metadata(path: &Path, names: &[&str], crc: u32, prefix: &str) {
 impl Fixture {
     fn new() -> Self {
         let temporary = tempfile::Builder::new()
-            .prefix("Tacitus replay é # ")
+            .prefix("Silo replay é # ")
             .tempdir()
             .unwrap();
         let game = temporary.path().join("Game folder");

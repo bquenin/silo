@@ -1,4 +1,4 @@
-//! SQLite schema for the Tacitus catalogue.
+//! SQLite schema for the Silo catalogue.
 //!
 //! Run-once on every connection open via `apply`. Idempotent — all DDL is
 //! `IF NOT EXISTS`.

@@ -6,13 +6,13 @@ A header check confirms that a public URL returned ZIP bytes; it does not valida
 
 [Machine-readable catalogue](../src-tauri/resources/map-pack-sources.json). This file is generated with `python tools/render_map_sources.py`.
 
-## Source order in Tacitus
+## Source order in Silo
 
-Tacitus checks installed and cached content first. For each likely map category, it tries verified public links from Command Post and then recorded archive mirrors before the exact-version list on kaneswrath.com. A failed download or extraction advances to the fallback. It accepts a candidate only when its full internal map path and compiled compatibility value match the replay. Provider labels can differ from internal suffixes. Unverified test releases and pack families remain excluded.
+Silo checks installed and cached content first. For each likely map category, it tries verified public links from Command Post and then recorded archive mirrors before the exact-version list on kaneswrath.com. A failed download or extraction advances to the fallback. It accepts a candidate only when its full internal map path and compiled compatibility value match the replay. Provider labels can differ from internal suffixes. Unverified test releases and pack families remain excluded.
 
-The catalogue embeds only shareable URLs. Automatic candidates must be public. Some R19 packs were recovered through Command Post managed downloads and verified against its archive checksums; their restricted links remain excluded from automatic downloads. Supplied ZIPs and supported standalone NSIS installers can be imported using `tacitus-cli cache-pack`. Archived installer downloads require their recorded SHA-256. Credentials and session-bound download URLs are excluded.
+The catalogue embeds only shareable URLs. Automatic candidates must be public. Some R19 packs were recovered through Command Post managed downloads and verified against its archive checksums; their restricted links remain excluded from automatic downloads. Supplied ZIPs and supported standalone NSIS installers can be imported using `silo-cli cache-pack`. Archived installer downloads require their recorded SHA-256. Credentials and session-bound download URLs are excluded.
 
-Metadata provenance: [Command Post public metadata ZIP](https://corefiles1.s3.eu-central-1.amazonaws.com/metadata.zip) and the Command Post `fetch_files.php` registry, queried by exact `metapack_name` and `meta_version_id`. The version identifier also supplies the map archive name: for example R20e uses `R201v1Maps.big`, while R21h uses `R21g1v1Maps.big`. The `compatibility_code` selects candidates, then Tacitus checks the actual compiled MapMetaData value against replay `MC`. Original R2–R7 packages without separate scripts use stock scripts only with an inspected, SHA-256-pinned exception. [Measured catalogue coverage](replay-content-coverage.md) separates verified content from remaining missing requirements.
+Metadata provenance: [Command Post public metadata ZIP](https://corefiles1.s3.eu-central-1.amazonaws.com/metadata.zip) and the Command Post `fetch_files.php` registry, queried by exact `metapack_name` and `meta_version_id`. The version identifier also supplies the map archive name: for example R20e uses `R201v1Maps.big`, while R21h uses `R21g1v1Maps.big`. The `compatibility_code` selects candidates, then Silo checks the actual compiled MapMetaData value against replay `MC`. Original R2–R7 packages without separate scripts use stock scripts only with an inspected, SHA-256-pinned exception. [Measured catalogue coverage](replay-content-coverage.md) separates verified content from remaining missing requirements.
 
 Installer support covers ZIPs containing BIG files or supported installers, standalone NSIS installers, ANSI/Unicode solid LZMA NSIS, Unicode non-solid DEFLATE NSIS, and Unicode chunked LZMA NSISBI. Other installer layouts fail without being executed. Not every historical pack listed here has been fully extracted or replay-tested.
 
@@ -22,7 +22,7 @@ R15 standard and Predatore bundles were recovered from Command Post public stora
 
 ## R12d recovered from Wayback
 
-All three original Shatabrick R12d installers were recovered from complete August 2025 Internet Archive captures. Their full payload SHA-1 hashes match the Wayback CDX records. Tacitus pins their SHA-256 values and unpacks them as data; no installer is executed. The packages contain 41, 27 and 13 map assets respectively, all with compiled MC `1A`, and the scripts supplied by each original installer. They satisfy all 23 R12d replay requirements in the checked catalogue, including unversioned companion maps. A fresh automatic download and preparation of the large-map pack passed, as did offline preparation from the other two packs.
+All three original Shatabrick R12d installers were recovered from complete August 2025 Internet Archive captures. Their full payload SHA-1 hashes match the Wayback CDX records. Silo pins their SHA-256 values and unpacks them as data; no installer is executed. The packages contain 41, 27 and 13 map assets respectively, all with compiled MC `1A`, and the scripts supplied by each original installer. They satisfy all 23 R12d replay requirements in the checked catalogue, including unversioned companion maps. A fresh automatic download and preparation of the large-map pack passed, as did offline preparation from the other two packs.
 
 | Pack | Archived original installer | Bytes | SHA-256 |
 | --- | --- | ---: | --- |
@@ -34,7 +34,7 @@ All three original Shatabrick R12d installers were recovered from complete Augus
 
 Command Post labels this release **R16 Beta**. Its actual map assets use the `__16` suffix recorded by R16 replays. The three verified standard pack records explicitly map to R16; other beta labels remain excluded until their assets are verified. The installers use an ANSI NSIS header and solid LZMA compression.
 
-Each installer contains its main `102plusmaps*.big` archive, a companion `102plusmaps*A.big` archive, and matching scripts. Tacitus includes both map archives from that exact package. This covers companion maps such as Smashed Decision, Forgotten Forest and Tiberian Dunes. A previously cached pack missing its companion archive no longer suppresses the download of a missing map.
+Each installer contains its main `102plusmaps*.big` archive, a companion `102plusmaps*A.big` archive, and matching scripts. Silo includes both map archives from that exact package. This covers companion maps such as Smashed Decision, Forgotten Forest and Tiberian Dunes. A previously cached pack missing its companion archive no longer suppresses the download of a missing map.
 
 | Pack | Command Post link | Public ZIP size |
 | --- | --- | ---: |
@@ -44,9 +44,9 @@ Each installer contains its main `102plusmaps*.big` archive, a companion `102plu
 
 ## R18f 4v4
 
-Command Post registry link 809, registered as R18f, points to an R18d ZIP whose map assets use `__18`. Tacitus excludes that link for R18f and uses the [correct R18f ZIP on the same Command Post CDN](https://cgf-uploads.fra1.cdn.digitaloceanspaces.com/files/1.02+/R18f/KWCommunityPatch102PlusMaps3_R18f.zip). The corrected path follows the installer filename in Command Post version `61f8aa314ec59`.
+Command Post registry link 809, registered as R18f, points to an R18d ZIP whose map assets use `__18`. Silo excludes that link for R18f and uses the [correct R18f ZIP on the same Command Post CDN](https://cgf-uploads.fra1.cdn.digitaloceanspaces.com/files/1.02+/R18f/KWCommunityPatch102PlusMaps3_R18f.zip). The corrected path follows the installer filename in Command Post version `61f8aa314ec59`.
 
-The 251,672,113-byte ZIP was fully downloaded and extracted. Its `102plusmaps3_18.big` contains 40 exact `__18f` map assets and matches the MD5 recorded in Command Post metadata: `1f63b5e1ac0a3859df1a2c2d222a1117`. Matching scripts come from the same installer. Tacitus successfully prepared `4_vs_4-367542da1019e4a6.KWReplay` (Tiberian Gardens VIII) with these assets. The pack covers all seven R18f large-map replays in the checked catalogue. These checks prepare content without starting the game.
+The 251,672,113-byte ZIP was fully downloaded and extracted. Its `102plusmaps3_18.big` contains 40 exact `__18f` map assets and matches the MD5 recorded in Command Post metadata: `1f63b5e1ac0a3859df1a2c2d222a1117`. Matching scripts come from the same installer. Silo successfully prepared `4_vs_4-367542da1019e4a6.KWReplay` (Tiberian Gardens VIII) with these assets. The pack covers all seven R18f large-map replays in the checked catalogue. These checks prepare content without starting the game.
 
 ZIP SHA-256: `7cff6da9368c02c0d85ff497b7c850f7c5444d879fd355a2bd53d23d013985b8`.
 
@@ -58,7 +58,7 @@ ZIP SHA-256: `7cff6da9368c02c0d85ff497b7c850f7c5444d879fd355a2bd53d23d013985b8`.
 | 2v2 | [Download](https://drive.google.com/file/d/1gfGhhzRLlZZ4DoW0kq7r2Nt33BMrlmac/view?usp=drive_link) | 573,634,650 bytes |
 | 4v4 | [Download](https://drive.google.com/file/d/1h-0Cj71wA1H4g3EgH0MCAz-X8ZA93IOV/view?usp=drive_link) | 575,464,421 bytes |
 
-The 1v1 and 2v2 packages were fully downloaded and extracted as data. Tacitus prepared catalogue replays 405 (Tournament Highlands) and 443 (Redzone Rampage) using their exact R20e assets and matching scripts. The packs contain 69 and 49 map assets respectively. These checks prepared launch configurations without starting the game.
+The 1v1 and 2v2 packages were fully downloaded and extracted as data. Silo prepared catalogue replays 405 (Tournament Highlands) and 443 (Redzone Rampage) using their exact R20e assets and matching scripts. The packs contain 69 and 49 map assets respectively. These checks prepared launch configurations without starting the game.
 
 The 1v1 ZIP SHA-256 is `7c0ab9ddfd58cd5b44b134a19eea01ff6b3fa90d2e232dab033d46edd1a6147b`.
 
@@ -565,7 +565,7 @@ The 1v1 ZIP SHA-256 is `7c0ab9ddfd58cd5b44b134a19eea01ff6b3fa90d2e232dab033d46ed
 
 - [R20e 1v1, 2v2 and 4v4 MEGA folder](https://mega.nz/folder/0eEnVK5B#89AhDFKaBAeGJxuJT_X0eA): Three public packs; ZIP headers, sizes and installer filenames verified (ZIP headers and indexes verified).
 
-The R20 MEGA folder was linked by [CNCSeries](https://cncseries.ru/kw-patch-1-02/). Its three ZIPs were checked using public file metadata, decrypted byte ranges, and ZIP central directories. They contain the R20e 1v1, 2v2 and 4v4 installers. MEGA is a manual fallback; Tacitus currently downloads R20e through the Command Post links above.
+The R20 MEGA folder was linked by [CNCSeries](https://cncseries.ru/kw-patch-1-02/). Its three ZIPs were checked using public file metadata, decrypted byte ranges, and ZIP central directories. They contain the R20e 1v1, 2v2 and 4v4 installers. MEGA is a manual fallback; Silo currently downloads R20e through the Command Post links above.
 
 ## Leads that did not yield public downloads
 

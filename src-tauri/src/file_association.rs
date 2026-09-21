@@ -2,7 +2,7 @@ use serde::Serialize;
 use std::path::Path;
 
 const EXTENSION: &str = ".kwreplay";
-const PROG_ID: &str = "Tacitus.KWReplay";
+const PROG_ID: &str = "Silo.KWReplay";
 
 #[derive(Debug, Serialize)]
 pub struct AssociationStatus {
@@ -132,8 +132,8 @@ mod tests {
     #[test]
     fn command_quotes_the_executable_and_replay_path() {
         assert_eq!(
-            open_command(Path::new(r"C:\Games and tools\tacitus.exe")),
-            r#""C:\Games and tools\tacitus.exe" "%1""#,
+            open_command(Path::new(r"C:\Games and tools\silo.exe")),
+            r#""C:\Games and tools\silo.exe" "%1""#,
         );
     }
 }

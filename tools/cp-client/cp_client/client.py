@@ -42,7 +42,7 @@ DEFAULT_ENV_VER = "4.8.1 or later"      # literal string the real client sends
 DEFAULT_APP_VER = "1.5.15"              # CP version observed in captures
 DEFAULT_APP_CODE = "255"                # build code observed
 DEFAULT_LANG = "1"
-DEFAULT_USER_AGENT = "tacitus-cp-client/0.1 (+https://github.com/bquenin/tacitus)"
+DEFAULT_USER_AGENT = "silo-cp-client/0.1 (+https://github.com/bquenin/silo)"
 DEFAULT_TIMEOUT = 30.0
 EPOCH_NEVER = "0001-01-01 00:00:00"     # what real CP sends for "never happened"
 PART_CONTENT_TYPE = "text/plain; charset=utf-8"

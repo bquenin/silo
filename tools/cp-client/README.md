@@ -2,7 +2,7 @@
 
 Python client for the closed-source **Command Post** API at
 `https://cgf-uploads.net/production/`. Built by reverse-engineering an
-mitmproxy capture of the real CP desktop app so [Tacitus](../../README.md)
+mitmproxy capture of the real CP desktop app so [Silo](../../README.md)
 can interoperate with the same replay corpus, map metadata, and user
 directory.
 
@@ -269,10 +269,10 @@ detects the no-op response.
 
 The CP server is community-run. Don't:
 - bulk-scrape `fetch_users(all_users=True)` in a tight loop (3.6 MB dump)
-- spoof the User-Agent of the real CP client (we identify as `tacitus-cp-client/0.1`)
+- spoof the User-Agent of the real CP client (we identify as `silo-cp-client/0.1`)
 - DOS via concurrent paginated fetches without backoff
 
-If you're pulling the replay corpus for Tacitus, throttle to ~1 req/s
+If you're pulling the replay corpus for Silo, throttle to ~1 req/s
 and cache locally. If a CP maintainer wants us to stop, we stop.
 
 ## Ethics / Legality

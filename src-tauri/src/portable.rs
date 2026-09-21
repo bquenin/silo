@@ -13,18 +13,18 @@ const REQUIRED_FILES: &[&str] = &[
     "msedge_elf.dll",
     "icudtl.dat",
 ];
-const COMPLETE: &str = ".tacitus-complete";
+const COMPLETE: &str = ".silo-complete";
 
 #[cfg(feature = "portable")]
 pub fn prepare_embedded() -> Result<PathBuf> {
-    const CAB: &[u8] = include_bytes!(env!("TACITUS_WEBVIEW2_CAB"));
-    const DIRECTORY: &str = env!("TACITUS_WEBVIEW2_DIRECTORY");
-    const SHA256: &str = env!("TACITUS_WEBVIEW2_SHA256");
+    const CAB: &[u8] = include_bytes!(env!("SILO_WEBVIEW2_CAB"));
+    const DIRECTORY: &str = env!("SILO_WEBVIEW2_DIRECTORY");
+    const SHA256: &str = env!("SILO_WEBVIEW2_SHA256");
     let root = std::env::var_os("LOCALAPPDATA")
         .filter(|path| !path.is_empty())
         .map(PathBuf::from)
         .context("Windows did not provide a local application data folder")?
-        .join("tacitus")
+        .join("silo")
         .join("runtimes");
     ensure_runtime(&root, DIRECTORY, SHA256, |staging| {
         let cab = staging.join("webview2.cab");
@@ -134,11 +134,11 @@ fn run_windows_tool(name: &str, args: &[&std::ffi::OsStr]) -> Result<()> {
 #[cfg(feature = "portable")]
 pub fn show_error(error: &anyhow::Error) {
     use windows_sys::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONERROR, MB_OK};
-    let message: Vec<u16> = format!("Tacitus could not prepare its bundled browser.\n\n{error:#}")
+    let message: Vec<u16> = format!("Silo could not prepare its bundled browser.\n\n{error:#}")
         .encode_utf16()
         .chain(Some(0))
         .collect();
-    let title: Vec<u16> = "Tacitus".encode_utf16().chain(Some(0)).collect();
+    let title: Vec<u16> = "Silo".encode_utf16().chain(Some(0)).collect();
     // Both buffers are null-terminated and live until this synchronous call returns.
     unsafe {
         MessageBoxW(

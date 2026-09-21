@@ -232,8 +232,8 @@ def base_assets(game, version):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--game', type=Path, required=True)
-    parser.add_argument('--db', type=Path, default=Path(os.environ['APPDATA']) / 'tacitus/catalogue.sqlite3')
-    parser.add_argument('--cache', type=Path, default=Path(os.environ['LOCALAPPDATA']) / 'tacitus/playback')
+    parser.add_argument('--db', type=Path, default=Path(os.environ['APPDATA']) / 'silo/catalogue.sqlite3')
+    parser.add_argument('--cache', type=Path, default=Path(os.environ['LOCALAPPDATA']) / 'silo/playback')
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--maps', type=Path, default=Path(os.environ['APPDATA']) / "Command & Conquer 3 Kane's Wrath/Maps")
     args = parser.parse_args()

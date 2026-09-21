@@ -1,15 +1,15 @@
-//! `tacitus` CLI — import, search, and play replays from the command line.
+//! `silo` CLI — import, search, and play replays from the command line.
 //!
 //! Subcommands all accept `--json` for machine-readable output.
 //!
-//!   tacitus import <PATH>           — walk a file or dir, insert .kwreplay
-//!   tacitus ls [--limit N]          — list catalogue entries
-//!   tacitus search [filters...]     — filter the catalogue (see below)
-//!   tacitus count                   — total replays in catalogue
-//!   tacitus parse <FILE>            — parse one file, print metadata
-//!   tacitus parse --full <FILE>     — parse + resolve Random factions
-//!   tacitus stats                   — high-level corpus aggregates
-//!   tacitus backfill-duration       — re-parse rows missing duration_frames
+//!   silo import <PATH>           — walk a file or dir, insert .kwreplay
+//!   silo ls [--limit N]          — list catalogue entries
+//!   silo search [filters...]     — filter the catalogue (see below)
+//!   silo count                   — total replays in catalogue
+//!   silo parse <FILE>            — parse one file, print metadata
+//!   silo parse --full <FILE>     — parse + resolve Random factions
+//!   silo stats                   — high-level corpus aggregates
+//!   silo backfill-duration       — re-parse rows missing duration_frames
 //!
 //! Search filters (combinable; all narrow the result set):
 //!   --player NAME       substring match on any player.name (case-insensitive)
@@ -34,9 +34,9 @@ use std::process::ExitCode;
 
 use anyhow::{anyhow, ensure, Context, Result};
 
-use tacitus_lib::db::Db;
-use tacitus_lib::ingest;
-use tacitus_lib::parser;
+use silo_lib::db::Db;
+use silo_lib::ingest;
+use silo_lib::parser;
 
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().collect();
@@ -95,10 +95,10 @@ fn run(args: &[String]) -> Result<()> {
 fn print_usage() {
     println!(
         "{}\n",
-        r#"tacitus — KW replay corpus manager (CLI)
+        r#"silo — KW replay corpus manager (CLI)
 
 USAGE:
-    tacitus [--db PATH] [--json] <SUBCOMMAND> [ARGS]
+    silo [--db PATH] [--json] <SUBCOMMAND> [ARGS]
 
 SUBCOMMANDS:
     import <PATH>       Walk PATH (file or dir) and ingest every .kwreplay
@@ -144,7 +144,7 @@ GLOBAL FLAGS:
 fn cmd_import(db_path: &PathBuf, rest: &[&str], json: bool) -> Result<()> {
     let path = rest
         .first()
-        .ok_or_else(|| anyhow!("usage: tacitus import <PATH>"))?;
+        .ok_or_else(|| anyhow!("usage: silo import <PATH>"))?;
     let mut db = Db::open(db_path)?;
     let report = ingest::ingest_path(&mut db, &PathBuf::from(path))?;
     if json {
@@ -171,7 +171,7 @@ fn cmd_import(db_path: &PathBuf, rest: &[&str], json: bool) -> Result<()> {
 }
 
 fn cmd_cache_pack(db_path: &PathBuf, rest: &[&str]) -> Result<()> {
-    use tacitus_lib::playback::automatic;
+    use silo_lib::playback::automatic;
     let id = rest
         .first()
         .context("cache-pack needs a replay ID")?
@@ -227,10 +227,10 @@ fn cmd_cache_pack(db_path: &PathBuf, rest: &[&str]) -> Result<()> {
 }
 
 fn cmd_playback(db_path: &PathBuf, rest: &[&str], json: bool, action: &str) -> Result<()> {
-    use tacitus_lib::playback;
+    use silo_lib::playback;
     let id: i64 = rest
         .first()
-        .context("usage: tacitus check|play|prepare ID [--game FOLDER] [--cache FOLDER] [--dry-run] [--offline]")?
+        .context("usage: silo check|play|prepare ID [--game FOLDER] [--cache FOLDER] [--dry-run] [--offline]")?
         .parse()?;
     let mut sku = None;
     let mut dry_run = action == "check";
@@ -398,7 +398,7 @@ fn cmd_ls(db_path: &PathBuf, rest: &[&str], json: bool) -> Result<()> {
 
 fn cmd_search(db_path: &PathBuf, rest: &[&str], json: bool) -> Result<()> {
     use rusqlite::{params_from_iter, Connection};
-    use tacitus_lib::db::{PlayerSummary, ReplayRow};
+    use silo_lib::db::{PlayerSummary, ReplayRow};
     // Ensure additive migrations run on legacy catalogues before we
     // build queries that reference the new column.
     drop(Db::open(db_path)?);
@@ -771,7 +771,7 @@ fn cmd_parse(rest: &[&str], json: bool) -> Result<()> {
             file = Some(*arg);
         }
     }
-    let file = file.ok_or_else(|| anyhow!("usage: tacitus parse [--full] <FILE>"))?;
+    let file = file.ok_or_else(|| anyhow!("usage: silo parse [--full] <FILE>"))?;
     let replay = if full {
         parser::parse_full(file)?
     } else {
@@ -830,7 +830,7 @@ fn cmd_stats(db_path: &PathBuf, json: bool) -> Result<()> {
     let mut modes = std::collections::BTreeMap::new();
     for row in &rows {
         *modes
-            .entry((tacitus_lib::db::mode_of(&row.players), row.n_players))
+            .entry((silo_lib::db::mode_of(&row.players), row.n_players))
             .or_insert(0i64) += 1;
     }
     let mut mode_counts: Vec<_> = modes.into_iter().collect();

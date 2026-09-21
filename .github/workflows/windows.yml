@@ -42,10 +42,10 @@ jobs:
         if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
-          name: tacitus-windows-x64-${{ github.sha }}
+          name: silo-windows-x64-${{ github.sha }}
           path: |
-            release/tacitus.exe
-            release/tacitus.exe.sha256
+            release/silo.exe
+            release/silo.exe.sha256
           compression-level: 0
           if-no-files-found: error
           retention-days: 14

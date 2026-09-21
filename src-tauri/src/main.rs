@@ -18,5 +18,5 @@ fn main() {
             }
         }
     }
-    tacitus_lib::run()
+    silo_lib::run()
 }

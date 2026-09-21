@@ -72,7 +72,7 @@ pub fn cache_root() -> PathBuf {
                 .unwrap()
                 .to_path_buf()
         })
-        .join("tacitus/playback")
+        .join("silo/playback")
 }
 
 /// Opening the playback dialog never downloads or creates a session.
@@ -120,7 +120,7 @@ pub fn inspect(target: &ReplayTarget, game_path: Option<&Path>, cache: &Path) ->
             ensure!(
                 super::sources::supports_compatibility(revision.as_deref(), crc)
                     || revision.as_deref().is_some_and(download::supported),
-                "Tacitus has no verified automatic download source for this map's compatibility value {crc:X}."
+                "Silo has no verified automatic download source for this map's compatibility value {crc:X}."
             );
             report.message =
                 "The required map and scripts will be prepared when you press Play.".into();
@@ -276,7 +276,7 @@ pub fn prepare(
     }
     text.push_str("add-search-path big:\n");
     fs::write(&sku, text)?;
-    fs::write(session.path().join("tacitus-session"), "1\n")?;
+    fs::write(session.path().join("silo-session"), "1\n")?;
     control.check()?;
     Ok(Prepared {
         plan: LaunchPlan {
@@ -339,7 +339,7 @@ pub fn launch(
         .context("Start Kane's Wrath")?;
     let pid = child.id();
     // A process exit leaves its generated files for the next startup. They
-    // must survive Tacitus closing while the game still uses the session.
+    // must survive Silo closing while the game still uses the session.
     std::thread::spawn(move || {
         let _ = child.wait();
         drop(prepared);
@@ -362,7 +362,7 @@ fn cleanup_sessions(cache: &Path) -> Result<()> {
         }
         let path = dunce::canonicalize(entry.path())?;
         if path.parent() == Some(root.as_path())
-            && fs::read(path.join("tacitus-session")).ok().as_deref() == Some(b"1\n")
+            && fs::read(path.join("silo-session")).ok().as_deref() == Some(b"1\n")
         {
             // The caller established no KW process is running. Only our own
             // marked session directory, never an archive's directory, is removed.

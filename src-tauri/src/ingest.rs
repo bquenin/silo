@@ -111,18 +111,18 @@ pub(crate) fn hash_file(path: &Path) -> std::io::Result<(String, u64)> {
     Ok((hex::encode(digest), size))
 }
 
-/// Default catalogue location: `%APPDATA%\tacitus\catalogue.sqlite3` on Windows,
-/// `~/.local/share/tacitus/catalogue.sqlite3` on Linux/macOS.
+/// Default catalogue location: `%APPDATA%\silo\catalogue.sqlite3` on Windows,
+/// `~/.local/share/silo/catalogue.sqlite3` on Linux/macOS.
 pub fn default_catalogue_path() -> PathBuf {
     if let Some(p) = std::env::var_os("APPDATA") {
         let mut p = PathBuf::from(p);
-        p.push("tacitus");
+        p.push("silo");
         p.push("catalogue.sqlite3");
         return p;
     }
     if let Some(home) = std::env::var_os("HOME") {
         let mut p = PathBuf::from(home);
-        p.push(".local/share/tacitus/catalogue.sqlite3");
+        p.push(".local/share/silo/catalogue.sqlite3");
         return p;
     }
     PathBuf::from("catalogue.sqlite3")

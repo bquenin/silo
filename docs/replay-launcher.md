@@ -1,6 +1,6 @@
 # Replay playback
 
-Click **Play** on a replay. Tacitus finds the game, checks installed and cached
+Click **Play** on a replay. Silo finds the game, checks installed and cached
 content, downloads missing supported content, and launches Kane's Wrath.
 There is no separate download action or configuration-file picker. Progress
 and cancellation are available during preparation; a failed attempt can be
@@ -24,7 +24,7 @@ A replay's internal map path identifies the exact asset and revision. The
 three-hex-digit replay prefix (such as `283`) is removed and separators/case
 are normalized, while the complete directory and revision suffix are retained.
 A thumbnail, display name, `FakeMapID`, or newer patch cannot substitute for
-that asset. Tacitus also compares the replay's hexadecimal `MC=` value with
+that asset. Silo also compares the replay's hexadecimal `MC=` value with
 the exact map's compiled `MapMetaData` entry. Several releases reuse the same
 path: an R18 replay with `MC=2B` needs the original R18d package, while `MC=2C`
 needs R18e. The release label alone cannot establish compatibility.
@@ -49,7 +49,7 @@ own bundled scripts. Original R2–R7 installers that contain no community scrip
 bundle may use stock scripts only when their source URL and complete package
 SHA-256 match an inspected exception in the source catalogue.
 
-When content is missing, Tacitus first uses cached and installed map indexes
+When content is missing, Silo first uses cached and installed map indexes
 to identify the likely pack. An exact map entry takes priority; the same map
 in another revision can guide pack selection but cannot satisfy playback.
 Otherwise, compatible Command Post registry codes supply category hints, then
@@ -70,7 +70,7 @@ exact Command Post version IDs and archive names. Downloading the embedded
 public links does not require a Command Post login. Match size is
 not guaranteed to equal map capacity, so an unknown map can still require
 another candidate if the first pack does not contain it. Missing
-historical downloads fail explicitly; Tacitus never substitutes the latest
+historical downloads fail explicitly; Silo never substitutes the latest
 version. Download support also depends on the available package format:
 direct BIG files in ZIPs, ANSI/Unicode solid LZMA NSIS (including R16),
 Unicode non-solid DEFLATE NSIS (including R20e), and the Unicode chunked
@@ -104,7 +104,7 @@ stream completion, decoded sizes, file offsets, and both NSIS string encodings.
 
 ## Cache and temporary sessions
 
-The default cache is `%LOCALAPPDATA%\tacitus\playback`:
+The default cache is `%LOCALAPPDATA%\silo\playback`:
 
 - `packages/pack-*/`: complete extracted replay-content archives and an index
   containing the source URL, exact revision, download SHA-256, archive sizes,
@@ -148,13 +148,13 @@ A running KW process blocks another launch, and that check is repeated after
 preparation. Launch arguments remain separate to preserve spaces, Unicode
 and special characters.
 
-Tacitus retains the session until the game exits. If Tacitus exits first,
+Silo retains the session until the game exits. If Silo exits first,
 the generated files remain available to the game; the next Play recovers
 marked stale sessions once no KW process is running. Cleanup never removes
 cached or borrowed content. This isolates content selection, **not** the
 game's ordinary preferences, logs or profile writes.
 
-The game process inherits the user's environment. Tacitus does not terminate
+The game process inherits the user's environment. Silo does not terminate
 existing game processes or clear their logs.
 
 A successful launch reports a process ID. It does not prove that every
@@ -163,11 +163,11 @@ supported replay remains deterministic through its entire duration.
 ## CLI
 
 ```powershell
-tacitus-cli check 123 --json
-tacitus-cli play 123 --dry-run --json
-tacitus-cli play 123 --game "C:\Games\KW"
-tacitus-cli prepare 123 --offline --json
-tacitus-cli cache-pack 123 C:\Downloads\historical-pack.zip --source https://example.org/pack.zip --sha256 <verified-SHA256>
+silo-cli check 123 --json
+silo-cli play 123 --dry-run --json
+silo-cli play 123 --game "C:\Games\KW"
+silo-cli prepare 123 --offline --json
+silo-cli cache-pack 123 C:\Downloads\historical-pack.zip --source https://example.org/pack.zip --sha256 <verified-SHA256>
 ```
 
 `check` and `play --dry-run` inspect without downloading or launching. A
@@ -182,11 +182,11 @@ suffix. It verifies the supplied SHA-256, exact map asset, compiled MC and
 script dependency before publishing the cache. The shareable source URL must
 exclude credentials. The supplied package is preserved, and no installer or game
 is executed. This supports packs obtained through Command Post's managed
-download flow without storing its session credentials in Tacitus.
+download flow without storing its session credentials in Silo.
 
 The original R12d installers also have verified Internet Archive fallback
 links. Automatic downloads must match their pinned SHA-256 before extraction.
-Tacitus reads their NSIS data records directly and retains each package's own
+Silo reads their NSIS data records directly and retains each package's own
 maps and script dependency. It does not execute the downloaded program.
 
 To audit every catalogue entry without downloads or game simulation:
@@ -234,7 +234,7 @@ aliases, underscore filenames, the older NSIS file records, bounded DEFLATE
 decoding, stream termination, and cancellation. R20e 1v1 and 2v2 packages
 from Command Post's public Drive links were fully downloaded, extracted and
 used to prepare replays 405 and 443 on 2026-09-19. The 2v2 check exercised
-Tacitus's complete network download path; the 1v1 check reused the verified
+Silo's complete network download path; the 1v1 check reused the verified
 research download. These checks did not start the game.
 
 R16 checks on 2026-09-19 prepared Tournament Highlands (388), Redzone

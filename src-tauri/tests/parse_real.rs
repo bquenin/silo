@@ -1,4 +1,4 @@
-//! Smoke tests against actual `.kwreplay` files in TACITUS_REPLAY_CORPUS.
+//! Smoke tests against actual `.kwreplay` files in SILO_REPLAY_CORPUS.
 //!
 //! Skipped when the environment variable is unset. The optional collection
 //! should include matches where players chose Random.
@@ -7,7 +7,7 @@ mod common;
 
 use std::path::PathBuf;
 
-use tacitus_lib::parser;
+use silo_lib::parser;
 
 #[test]
 fn parses_one_replay() {

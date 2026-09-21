@@ -101,7 +101,7 @@ export function LibraryLayout() {
       const result = await associateReplayFiles();
       setAssociation(result);
       if (!result.associated) {
-        setAssociationError('Tacitus is registered, but Windows has another default app. Right-click a .kwreplay file, choose Open with, select Tacitus and choose Always.');
+        setAssociationError('Silo is registered, but Windows has another default app. Right-click a .kwreplay file, choose Open with, select Silo and choose Always.');
       }
     } catch (reason) {
       setAssociationError(`Could not associate .kwreplay files: ${String(reason)}`);
@@ -128,7 +128,7 @@ export function LibraryLayout() {
     <div className="h-full w-full flex flex-col text-fg">
       {/* toolbar */}
       <div className="h-12 shrink-0 flex items-center px-4 gap-3 border-b border-bg-border bg-bg-subtle">
-        <span className="text-accent font-semibold tracking-wide">tacitus</span>
+        <span className="text-accent font-semibold tracking-wide">silo</span>
 
         <div className="relative w-64">
           <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-fg-muted" />
@@ -183,8 +183,8 @@ export function LibraryLayout() {
             onClick={() => void handleAssociation()}
             disabled={associationBusy || association?.associated}
             title={association?.associated
-              ? '.kwreplay files open with this copy of Tacitus'
-              : 'Open .kwreplay files with this copy of Tacitus'}
+              ? '.kwreplay files open with this copy of Silo'
+              : 'Open .kwreplay files with this copy of Silo'}
             className="flex items-center gap-1.5 border border-bg-border text-fg-muted rounded px-3 py-1.5 text-sm hover:text-fg hover:bg-bg-surface disabled:opacity-60"
           >
             {associationBusy ? <Loader2 size={14} className="animate-spin" /> : <FileCheck2 size={14} />}

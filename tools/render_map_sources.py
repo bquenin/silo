@@ -1,7 +1,7 @@
 """Render the public map download catalogue. No network access or credentials.
 
 Usage: python tools/render_map_sources.py
-The machine-readable source is embedded in Tacitus at build time.
+The machine-readable source is embedded in Silo at build time.
 """
 import json
 from pathlib import Path
@@ -40,8 +40,8 @@ def render(data):
         'as research leads. Login pages and transient failures are not proof that a pack no longer exists.', '',
         '[Machine-readable catalogue](../src-tauri/resources/map-pack-sources.json). '
         'This file is generated with `python tools/render_map_sources.py`.', '',
-        '## Source order in Tacitus', '',
-        'Tacitus checks installed and cached content first. For each likely map category, it '
+        '## Source order in Silo', '',
+        'Silo checks installed and cached content first. For each likely map category, it '
         'tries verified public links from Command Post and then recorded archive mirrors '
         'before the exact-version list on kaneswrath.com. A failed download or extraction advances to the fallback. It '
         'accepts a candidate only when its full internal map path and compiled compatibility '
@@ -51,13 +51,13 @@ def render(data):
         'Some R19 packs were recovered through Command Post managed downloads and verified '
         'against its archive checksums; their restricted links remain excluded from automatic '
         'downloads. Supplied ZIPs and supported standalone NSIS installers can be imported '
-        'using `tacitus-cli cache-pack`. Archived installer downloads require their recorded SHA-256. '
+        'using `silo-cli cache-pack`. Archived installer downloads require their recorded SHA-256. '
         'Credentials and session-bound download URLs are excluded.', '',
         'Metadata provenance: [Command Post public metadata ZIP]('
         + data['metadata_url'] + ') and the Command Post `fetch_files.php` registry, queried '
         'by exact `metapack_name` and `meta_version_id`. The version identifier also supplies '
         'the map archive name: for example R20e uses `R201v1Maps.big`, while R21h uses '
-        '`R21g1v1Maps.big`. The `compatibility_code` selects candidates, then Tacitus checks '
+        '`R21g1v1Maps.big`. The `compatibility_code` selects candidates, then Silo checks '
         'the actual compiled MapMetaData value against replay `MC`. '
         'Original R2–R7 packages without separate scripts use stock scripts only with '
         'an inspected, SHA-256-pinned exception. '
@@ -78,7 +78,7 @@ def render(data):
         '## R12d recovered from Wayback', '',
         'All three original Shatabrick R12d installers were recovered from complete August '
         '2025 Internet Archive captures. Their full payload SHA-1 hashes match the Wayback '
-        'CDX records. Tacitus pins their SHA-256 values and unpacks them as data; no installer '
+        'CDX records. Silo pins their SHA-256 values and unpacks them as data; no installer '
         'is executed. The packages contain 41, 27 and 13 map assets respectively, all with '
         'compiled MC `1A`, and the scripts supplied by each original installer. They satisfy '
         'all 23 R12d replay requirements in the checked catalogue, including unversioned '
@@ -97,7 +97,7 @@ def render(data):
         'explicitly map to R16; other beta labels remain excluded until their assets are verified. '
         'The installers use an ANSI NSIS header and solid LZMA compression.', '',
         'Each installer contains its main `102plusmaps*.big` archive, a companion '
-        '`102plusmaps*A.big` archive, and matching scripts. Tacitus includes both map '
+        '`102plusmaps*A.big` archive, and matching scripts. Silo includes both map '
         'archives from that exact package. This covers companion maps such as Smashed '
         'Decision, Forgotten Forest and Tiberian Dunes. A previously cached pack missing '
         'its companion archive no longer suppresses the download of a missing map.', '',
@@ -109,7 +109,7 @@ def render(data):
     lines += ['',
         '## R18f 4v4', '',
         'Command Post registry link 809, registered as R18f, points to an R18d ZIP '
-        'whose map assets use `__18`. Tacitus excludes that link for R18f and uses '
+        'whose map assets use `__18`. Silo excludes that link for R18f and uses '
         'the [correct R18f ZIP on the same Command Post CDN]('
         'https://cgf-uploads.fra1.cdn.digitaloceanspaces.com/files/1.02+/R18f/'
         'KWCommunityPatch102PlusMaps3_R18f.zip). The corrected path follows the '
@@ -118,7 +118,7 @@ def render(data):
         '`102plusmaps3_18.big` contains 40 exact `__18f` map assets and matches '
         'the MD5 recorded in Command Post metadata: '
         '`1f63b5e1ac0a3859df1a2c2d222a1117`. Matching scripts come from the same '
-        'installer. Tacitus successfully prepared '
+        'installer. Silo successfully prepared '
         '`4_vs_4-367542da1019e4a6.KWReplay` (Tiberian Gardens VIII) with these '
         'assets. The pack covers all seven R18f large-map replays in the checked '
         'catalogue. These checks prepare content without starting the game.', '',
@@ -135,7 +135,7 @@ def render(data):
             size = f"{link['bytes']:,} bytes" if link.get('bytes') else 'Unknown'
             lines.append(f"| {pack_names[version['set']]} | [Download]({link['url']}) | {size} |")
     lines += ['', 'The 1v1 and 2v2 packages were fully downloaded and extracted as data. '
-              'Tacitus prepared catalogue replays 405 (Tournament Highlands) and 443 '
+              'Silo prepared catalogue replays 405 (Tournament Highlands) and 443 '
               '(Redzone Rampage) using their exact R20e assets and matching scripts. '
               'The packs contain 69 and 49 map assets respectively. These checks prepared '
               'launch configurations without starting the game.', '',
@@ -159,7 +159,7 @@ def render(data):
     lines += ['', 'The R20 MEGA folder was linked by [CNCSeries]('
               'https://cncseries.ru/kw-patch-1-02/). Its three ZIPs were checked using public '
               'file metadata, decrypted byte ranges, and ZIP central directories. They contain '
-              'the R20e 1v1, 2v2 and 4v4 installers. MEGA is a manual fallback; Tacitus currently '
+              'the R20e 1v1, 2v2 and 4v4 installers. MEGA is a manual fallback; Silo currently '
               'downloads R20e through the Command Post links above.', '',
               '## Leads that did not yield public downloads', '',
               '- [Masterleaf R19 MEGA folder](https://mega.nz/folder/lHkkUDZb#S9s1jiTvxti-ZA3Gmtjlbg): public API returned unavailable.',

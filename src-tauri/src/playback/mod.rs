@@ -352,7 +352,7 @@ pub fn launch(target: &ReplayTarget, sku: Option<&Path>) -> Result<LaunchResult>
         .spawn()
         .context("Start Kane's Wrath")?;
     let pid = child.id();
-    // Reap the child without closing it when Tacitus is closed.
+    // Reap the child without closing it when Silo is closed.
     std::thread::spawn(move || {
         let _ = child.wait();
     });

@@ -1,14 +1,14 @@
-# Tacitus
+# Silo
 
-Tacitus is a replay library and playback manager for **Command & Conquer 3:
+Silo is a replay library and playback manager for **Command & Conquer 3:
 Kane's Wrath**. It catalogues `.kwreplay` files, extracts match metadata, and
 prepares the exact game content needed to watch a replay in the live engine.
 
-![Tacitus replay library showing searchable matches and faction monograms](docs/images/tacitus-library.png)
+![Silo replay library showing searchable matches and faction monograms](docs/images/silo-library.png)
 
 ## Current status
 
-Tacitus 0.1.0 is a functional Windows x64 release candidate. The desktop app
+Silo 0.1.0 is a functional Windows x64 release candidate. The desktop app
 can import and browse a replay collection, resolve factions selected through
 Random, detect a game installation, obtain supported historical map packs, and
 launch a replay with an isolated temporary game configuration.
@@ -16,7 +16,8 @@ launch a replay with an isolated temporary game configuration.
 The portable build is a single executable with the UI, Rust backend, SQLite,
 and a private WebView2 runtime embedded. It does not need an installer or a
 runtime download when it starts. The executable is currently unsigned; code
-signing and clean Windows 10/11 release testing remain before a public release.
+signing is not required to run it. The portable build has also been tested on
+another Windows computer.
 
 ## Features
 
@@ -36,54 +37,54 @@ signing and clean Windows 10/11 release testing remain before a public release.
   executed.
 - Mount replay content through a temporary configuration without changing the
   user's installed packs or selected game configuration.
-- Optionally associate `.kwreplay` files with the current Tacitus executable,
+- Optionally associate `.kwreplay` files with the current Silo executable,
   so a replay can be imported by double-clicking it in Explorer.
 - Import, list, search, parse, check, prepare, and launch replays from
-  `tacitus-cli`, with structured JSON output where applicable.
+  `silo-cli`, with structured JSON output where applicable.
 
 ## Running the portable build
 
-Tacitus requires Windows x64. Replay playback also requires an installed copy
+Silo requires Windows x64. Replay playback also requires an installed copy
 of Kane's Wrath; browsing and importing replays does not.
 
-Distribute `release/tacitus.exe` by itself. The optional adjacent
-`tacitus.exe.sha256` file is checksum metadata and is not required at runtime.
+Distribute `release/silo.exe` by itself. The optional adjacent
+`silo.exe.sha256` file is checksum metadata and is not required at runtime.
 The executable can be moved or renamed.
 
-On first launch, Tacitus extracts its embedded browser runtime into
-`%LOCALAPPDATA%\tacitus\runtimes`. This can delay the first window by several
+On first launch, Silo extracts its embedded browser runtime into
+`%LOCALAPPDATA%\silo\runtimes`. This can delay the first window by several
 seconds. Later launches reuse that runtime.
 
 Application data is stored separately from the executable:
 
-- `%APPDATA%\tacitus\catalogue.sqlite3` — replay catalogue
-- `%APPDATA%\tacitus\launcher.json` — detected or selected game folder
-- `%LOCALAPPDATA%\tacitus\playback` — downloaded content and launch sessions
+- `%APPDATA%\silo\catalogue.sqlite3` — replay catalogue
+- `%APPDATA%\silo\launcher.json` — detected or selected game folder
+- `%LOCALAPPDATA%\silo\playback` — downloaded content and launch sessions
 
-Removing `tacitus.exe` does not remove this data. See the
+Removing `silo.exe` does not remove this data. See the
 [portable release notes](docs/portable-release.md) for build internals,
 runtime updates, and release validation.
 
-## Using Tacitus
+## Using Silo
 
-1. Start Tacitus and choose **Import**.
+1. Start Silo and choose **Import**.
 2. Select a folder containing `.kwreplay` files.
 3. Search, sort, and filter the resulting library. Faction filters are grouped
    as GDI/ST/ZOCOM, NOD/MoK/BH, and SCRIN/T59/R17.
-4. Select a replay and choose **Play**. Tacitus checks the game and required
+4. Select a replay and choose **Play**. Silo checks the game and required
    content, downloads a supported missing pack when available, and starts the
    replay.
 
-Choose **Associate .kwreplay** to opt into opening replay files with Tacitus.
+Choose **Associate .kwreplay** to opt into opening replay files with Silo.
 The association applies only to the current Windows user and points to the
-current executable. If you move or rename `tacitus.exe`, start it from the new
+current executable. If you move or rename `silo.exe`, start it from the new
 location and choose the button again to update the association.
 If Windows already has another default app, right-click a replay, choose
-**Open with**, select Tacitus and choose **Always**.
+**Open with**, select Silo and choose **Always**.
 
 Updates are manual: download a later release and replace the executable after
-closing Tacitus. Your catalogue and caches remain in their separate data folders.
-Browser security updates ship with new Tacitus builds.
+closing Silo. Your catalogue and caches remain in their separate data folders.
+Browser security updates ship with new Silo builds.
 
 If automatic game detection fails, the playback dialog asks for the Kane's
 Wrath installation folder containing `Core` and `RetailExe`. The selected path
@@ -121,7 +122,7 @@ cargo test --manifest-path src-tauri/Cargo.toml --all-targets
 ```
 
 The optional real-replay tests read the folder named by
-`TACITUS_REPLAY_CORPUS`. Point it at a local collection that includes matches
+`SILO_REPLAY_CORPUS`. Point it at a local collection that includes matches
 where players selected Random. Those tests skip when the variable is unset;
 the remaining tests use self-contained fixtures.
 
@@ -144,7 +145,7 @@ npm run build:portable
 
 The command downloads and verifies the pinned Microsoft WebView2 Fixed Version
 package, builds the application with the static MSVC runtime, and writes
-`release/tacitus.exe` plus its SHA-256 file. Subsequent builds reuse the cached
+`release/silo.exe` plus its SHA-256 file. Subsequent builds reuse the cached
 WebView2 package.
 
 ## Technology

@@ -9,7 +9,7 @@ fn embed_webview2() {
     use sha2::{Digest, Sha256};
     use std::{fs::File, io::Read, path::PathBuf};
 
-    println!("cargo:rerun-if-env-changed=TACITUS_WEBVIEW2_CAB");
+    println!("cargo:rerun-if-env-changed=SILO_WEBVIEW2_CAB");
     println!("cargo:rerun-if-changed=resources/webview2-runtime.json");
     let metadata: serde_json::Value =
         serde_json::from_str(include_str!("resources/webview2-runtime.json"))
@@ -20,7 +20,7 @@ fn embed_webview2() {
         "the portable runtime must match the build architecture"
     );
     let cab = PathBuf::from(
-        std::env::var_os("TACITUS_WEBVIEW2_CAB")
+        std::env::var_os("SILO_WEBVIEW2_CAB")
             .expect("portable builds need the pinned WebView2 CAB; run npm run build:portable"),
     )
     .canonicalize()
@@ -42,10 +42,10 @@ fn embed_webview2() {
         metadata["sha256"].as_str().unwrap(),
         "WebView2 CAB checksum mismatch"
     );
-    println!("cargo:rustc-env=TACITUS_WEBVIEW2_CAB={}", cab.display());
-    println!("cargo:rustc-env=TACITUS_WEBVIEW2_SHA256={hash}");
+    println!("cargo:rustc-env=SILO_WEBVIEW2_CAB={}", cab.display());
+    println!("cargo:rustc-env=SILO_WEBVIEW2_SHA256={hash}");
     println!(
-        "cargo:rustc-env=TACITUS_WEBVIEW2_DIRECTORY=Microsoft.WebView2.FixedVersionRuntime.{}.{}",
+        "cargo:rustc-env=SILO_WEBVIEW2_DIRECTORY=Microsoft.WebView2.FixedVersionRuntime.{}.{}",
         metadata["version"].as_str().unwrap(),
         metadata["architecture"].as_str().unwrap()
     );

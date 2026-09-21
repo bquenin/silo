@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use tacitus_lib::{
+use silo_lib::{
     db::{Db, ReplayCursor},
     ingest, parser,
 };
@@ -13,7 +13,7 @@ impl Fixture {
     fn new() -> Self {
         static NEXT: AtomicU64 = AtomicU64::new(0);
         let path = std::env::temp_dir().join(format!(
-            "tacitus-regression-{}-{}-{}",
+            "silo-regression-{}-{}-{}",
             std::process::id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
@@ -28,7 +28,7 @@ impl Fixture {
         self.0.join(name)
     }
     fn cli(&self, args: &[&str]) -> std::process::Output {
-        Command::new(env!("CARGO_BIN_EXE_tacitus-cli"))
+        Command::new(env!("CARGO_BIN_EXE_silo-cli"))
             .current_dir(&self.0)
             .arg("--db")
             .arg(self.file("catalogue.sqlite3"))
@@ -46,7 +46,7 @@ impl Drop for Fixture {
             .file_name()
             .unwrap()
             .to_string_lossy()
-            .starts_with("tacitus-regression-"));
+            .starts_with("silo-regression-"));
         fs::remove_dir_all(&self.0).unwrap();
     }
 }

@@ -1,4 +1,4 @@
-//! Tacitus library — shared between the Tauri app and the CLI binary.
+//! Silo library — shared between the Tauri app and the CLI binary.
 
 pub mod db;
 pub mod file_association;
@@ -338,7 +338,7 @@ mod playback_job_tests {
             Some(r"C:\Replays\match.KWReplay".into()),
         );
         assert_eq!(
-            replay_argument(["tacitus.exe".into(), "notes.txt".into()]),
+            replay_argument(["silo.exe".into(), "notes.txt".into()]),
             None
         );
     }

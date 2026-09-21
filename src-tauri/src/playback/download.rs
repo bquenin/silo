@@ -80,7 +80,7 @@ async fn cancelled(control: &Control<'_>) {
 
 fn client() -> Result<reqwest::Client> {
     Ok(reqwest::Client::builder()
-        .user_agent("Tacitus/0.1 (replay content cache)")
+        .user_agent("Silo/0.1 (replay content cache)")
         .https_only(true)
         .connect_timeout(Duration::from_secs(15))
         .read_timeout(Duration::from_secs(30))
@@ -180,7 +180,7 @@ fn lock_cache(cache: &Path) -> Result<File> {
         .create(true)
         .truncate(false)
         .open(cache.join("download.lock"))?;
-    lock.try_lock().context("Another Tacitus instance may be preparing content. Wait for it to finish, then press Play.")?;
+    lock.try_lock().context("Another Silo instance may be preparing content. Wait for it to finish, then press Play.")?;
     Ok(lock)
 }
 
@@ -197,7 +197,7 @@ fn cleanup_staging(stages: &Path) -> Result<()> {
         }
         let path = dunce::canonicalize(entry.path())?;
         if path.parent() == Some(root.as_path())
-            && fs::read(path.join("tacitus-download")).ok().as_deref() == Some(b"1\n")
+            && fs::read(path.join("silo-download")).ok().as_deref() == Some(b"1\n")
         {
             fs::remove_dir_all(path)?;
         }
@@ -248,7 +248,7 @@ pub fn import_package(
     let stage = tempfile::Builder::new()
         .prefix("download-")
         .tempdir_in(&stages)?;
-    fs::write(stage.path().join("tacitus-download"), "1\n")?;
+    fs::write(stage.path().join("silo-download"), "1\n")?;
     control.stage("verifying", "Verifying the supplied map package…")?;
     ensure!(
         fs::metadata(package)?.len() <= MAX_PACKAGE_BYTES,
@@ -299,7 +299,7 @@ pub fn acquire(
 ) -> Result<()> {
     ensure!(
         sources::supports_compatibility(revision, crc) || revision.is_some_and(supported),
-        "Tacitus has no verified automatic download source for this map's compatibility value {crc:X}."
+        "Silo has no verified automatic download source for this map's compatibility value {crc:X}."
     );
     control.check()?;
     let _cache_lock = lock_cache(cache)?;
@@ -398,7 +398,7 @@ fn acquire_from(
     let stage = tempfile::Builder::new()
         .prefix("download-")
         .tempdir_in(stages)?;
-    fs::write(stage.path().join("tacitus-download"), "1\n")?;
+    fs::write(stage.path().join("silo-download"), "1\n")?;
     // Keep a complete, hashed download if extraction fails, so
     // retrying preparation does not require downloading it again.
     let downloads = cache.join("downloads");
@@ -483,7 +483,7 @@ mod tests {
         let unrelated = stages.join("download-unowned");
         fs::create_dir_all(&abandoned).unwrap();
         fs::create_dir_all(&unrelated).unwrap();
-        fs::write(abandoned.join("tacitus-download"), "1\n").unwrap();
+        fs::write(abandoned.join("silo-download"), "1\n").unwrap();
         fs::write(abandoned.join("partial.dat"), "partial").unwrap();
         fs::write(unrelated.join("keep.dat"), "keep").unwrap();
         drop(lock);

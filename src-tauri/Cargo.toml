@@ -1,15 +1,15 @@
 [package]
-name = "tacitus"
+name = "silo"
 version = "0.1.0"
 description = "Replay-corpus manager for Command & Conquer 3: Kane's Wrath"
 authors = ["Bertrand Quenin"]
 edition = "2021"
 license = "MIT"
-repository = "https://github.com/bquenin/tacitus"
-default-run = "tacitus"
+repository = "https://github.com/bquenin/silo"
+default-run = "silo"
 
 [lib]
-name = "tacitus_lib"
+name = "silo_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [features]
@@ -52,7 +52,7 @@ winreg = "0.56.0"
 opt-level = 3
 
 # The streaming decoder is generic and is instantiated in this crate.
-[profile.dev.package.tacitus]
+[profile.dev.package.silo]
 opt-level = 1
 
 [profile.dev.package.sha2]

@@ -1,12 +1,12 @@
-//! End-to-end ingest from the optional TACITUS_REPLAY_CORPUS folder:
+//! End-to-end ingest from the optional SILO_REPLAY_CORPUS folder:
 //! hash, parse, and insert replays into a fresh SQLite catalogue.
 
 mod common;
 
 use std::path::Path;
 
-use tacitus_lib::db::Db;
-use tacitus_lib::ingest;
+use silo_lib::db::Db;
+use silo_lib::ingest;
 
 #[test]
 fn ingests_corpus_into_sqlite() {
@@ -14,7 +14,7 @@ fn ingests_corpus_into_sqlite() {
         return;
     };
     let tmpdir =
-        std::env::temp_dir().join(format!("tacitus-ingest-{}.sqlite3", std::process::id()));
+        std::env::temp_dir().join(format!("silo-ingest-{}.sqlite3", std::process::id()));
     let _ = std::fs::remove_file(&tmpdir);
     let mut db = Db::open(&tmpdir).expect("open db");
 

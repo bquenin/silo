@@ -137,7 +137,7 @@ Shatabrick's original download URLs. The complete captures date from August
 downloaded payload SHA-1 hashes match their CDX records. Their 81 compiled map
 assets have MC `1A`, and all 23 R12d requirements match the full asset path and
 MC. The 1v1 installer has different scripts from the 2v2 and large-map
-installers; Tacitus keeps each package's own dependency.
+installers; Silo keeps each package's own dependency.
 
 The [source catalogue](map-pack-sources.md#r12d-recovered-from-wayback) records
 the three downloadable archive URLs, original URLs, capture dates, package
@@ -194,7 +194,7 @@ Command Post links remain first choice. The nine recovered R19 packages were
 downloaded through its managed flow; transfer checksums and original map BIG
 MD5 records agreed. They work from the local cache. Their restricted links
 are **not** public automatic downloads on a fresh installation; separately
-obtained ZIPs can be imported with `tacitus-cli cache-pack`.
+obtained ZIPs can be imported with `silo-cli cache-pack`.
 
 The [source catalogue](map-pack-sources.md) records shareable links, original
 version IDs, compatibility codes, verified archive aliases and dependency
@@ -206,7 +206,7 @@ rules, import command and validation limits.
 
 ```powershell
 python tools/audit_replay_content.py --game "C:\Games\KW" --output scratch/coverage.json
-tacitus-cli prepare <replay-id> --offline --json
+silo-cli prepare <replay-id> --offline --json
 ```
 
 The JSON report includes every replay's exact asset, MC, engine version and
