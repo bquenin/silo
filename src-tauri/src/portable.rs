@@ -60,7 +60,10 @@ fn ensure_runtime(
     install: impl FnOnce(&Path) -> Result<()>,
 ) -> Result<PathBuf> {
     fs::create_dir_all(root).context("Could not create the runtime cache")?;
-    let runtime = root.join(format!("{directory}-{sha256}"));
+    // WebView2's loader still has path-length limits even when Rust can access
+    // the files. The full package digest identifies the runtime without repeating
+    // Microsoft's long CAB directory name in the final cache path.
+    let runtime = root.join(sha256);
     let lock = fs::OpenOptions::new()
         .create(true)
         .truncate(false)

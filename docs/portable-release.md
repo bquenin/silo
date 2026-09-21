@@ -48,7 +48,9 @@ To update the browser, obtain a new x64 Fixed Version package from
 [Microsoft’s WebView2 downloads](https://developer.microsoft.com/en-us/microsoft-edge/webview2/),
 update the pin, and rebuild. Fixed Version runtimes do not update themselves, so
 runtime updates ship with new Tacitus releases. Existing runtime caches have
-version/hash-specific names and are left intact when another version runs.
+package-hash-specific names and are left intact when another version runs.
+The cache directory uses the digest alone to avoid WebView2 loader failures
+caused by repeating the long Microsoft package name under deep user paths.
 Microsoft documents this deployment model and its Windows 10 permissions in
 [WebView2 distribution](https://learn.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution#the-fixed-version-runtime-distribution-mode).
 

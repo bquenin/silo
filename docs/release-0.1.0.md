@@ -49,3 +49,8 @@ The checksum can be checked with `Get-FileHash .\tacitus.exe -Algorithm SHA256`.
 - Rust audit: no vulnerability errors; seven upstream warnings remain for
   unmaintained transitive crates and the Linux GLib dependency's unsoundness advisory.
   Warnings remain visible in CI.
+- Native Windows smoke: a renamed EXE in a directory containing spaces and
+  non-ASCII characters reached the empty library with fresh isolated app data
+  in 6.1 seconds; the cached launch took 1.1 seconds. This caught and verified a
+  fix for a WebView2 loader failure caused by long runtime cache paths.
+  This development-machine check does not replace clean Windows 10/11 testing.
